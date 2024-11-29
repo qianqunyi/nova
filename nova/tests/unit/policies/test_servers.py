@@ -40,6 +40,14 @@ from nova.tests.unit.policies import base
 CONF = nova.conf.CONF
 
 
+def fake_add_security_grps(
+    req, servers, instances, create_request=False,
+):
+    # just enough to satisfy schema checks
+    if create_request:
+        servers[0]['security_groups'] = [{'name': 'default'}]
+
+
 class ServersPolicyTest(base.BasePolicyTest):
     """Test Servers APIs policies with all possible context.
     This class defines the set of context with different roles
@@ -61,7 +69,9 @@ class ServersPolicyTest(base.BasePolicyTest):
         self.req = fakes.HTTPRequest.blank('')
         user_id = self.req.environ['nova.context'].user_id
 
-        self.controller._view_builder._add_security_grps = mock.MagicMock()
+        self.controller._view_builder._add_security_grps = mock.MagicMock(
+            side_effect=fake_add_security_grps
+        )
         self.controller._view_builder._get_metadata = mock.MagicMock()
         self.controller._view_builder._get_addresses = mock.MagicMock()
         self.controller._view_builder._get_host_id = mock.MagicMock(
@@ -81,7 +91,7 @@ class ServersPolicyTest(base.BasePolicyTest):
             fixtures.MockPatch('nova.compute.flavors.get_flavor_by_flavor_id')
         ).mock
         self.mock_flavor.return_value = fake_flavor.fake_flavor_obj(
-                self.req.environ['nova.context'], flavorid='1')
+            self.req.environ['nova.context'], flavorid='1')
 
         self.mock_get = self.useFixture(
             fixtures.MockPatch('nova.api.openstack.common.get_instance')).mock
