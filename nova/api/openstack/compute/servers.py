@@ -113,11 +113,13 @@ class ServersController(wsgi.Controller):
         self.compute_api = compute.API()
 
     @wsgi.expected_errors((400, 403))
-    @validation.query_schema(schema.query_params_v275, '2.75')
-    @validation.query_schema(schema.query_params_v273, '2.73', '2.74')
-    @validation.query_schema(schema.query_params_v266, '2.66', '2.72')
-    @validation.query_schema(schema.query_params_v226, '2.26', '2.65')
     @validation.query_schema(schema.query_params_v21, '2.1', '2.25')
+    @validation.query_schema(schema.query_params_v226, '2.26', '2.65')
+    @validation.query_schema(schema.query_params_v266, '2.66', '2.72')
+    @validation.query_schema(schema.query_params_v273, '2.73', '2.74')
+    @validation.query_schema(schema.query_params_v275, '2.75')
+    @validation.response_body_schema(schema.index_response, '2.1', '2.68')
+    @validation.response_body_schema(schema.index_response_v269, '2.69')
     def index(self, req):
         """Returns a list of server names and ids for a given user."""
         context = req.environ['nova.context']
