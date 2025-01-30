@@ -321,7 +321,7 @@ class FlavorsTestV21(test.TestCase):
                         "href": "http://localhost/flavors/1",
                     }
                 ]
-           }
+            }
         ]
         if self.expect_description:
             expected_flavors[0]['description'] = (
@@ -852,6 +852,82 @@ class FlavorsTestV275(FlavorsTestV261):
         response = self.controller.show(req, 1)
         response_list = response["flavor"]
         self.assertEqual(response_list['swap'], 0)
+
+
+class FlavorsTestV2102(FlavorsTestV275):
+    microversion = '2.102'
+
+    def test_list_flavors_with_name_filter_old_version(self):
+        req = fakes.HTTPRequestV21.blank(
+            '/flavors?name=false', version='2.101')
+        self.assertRaises(
+            exception.ValidationError, self.controller.index, req)
+
+    def test_list_detail_flavors_with_name_filter_old_version(self):
+        req = fakes.HTTPRequestV21.blank(
+            '/flavors/detail?name=false', version='2.101')
+        self.assertRaises(
+            exception.ValidationError, self.controller.detail, req)
+
+    def test_list_flavors_with_name_filter(self):
+        req = fakes.HTTPRequestV21.blank(
+            '/flavors?name=2', version=self.microversion)
+        actual = self.controller.index(req)
+        expected = {
+            'flavors': [
+                {
+                    'description': 'flavor 2 description',
+                    'id': '2',
+                    'links': [
+                        {
+                            'href': 'http://localhost/v2.1/flavors/2',
+                            'rel': 'self',
+                        },
+                        {
+                            'href': 'http://localhost/flavors/2',
+                            'rel': 'bookmark',
+                        },
+                    ],
+                    'name': 'flavor 2',
+                },
+            ],
+        }
+        self.assertEqual(expected, actual)
+
+    def test_list_detail_flavors_with_name_filter(self):
+        req = fakes.HTTPRequestV21.blank(
+            '/flavors/detail?name=2', version=self.microversion)
+        actual = self.controller.detail(req)
+        expected = {
+            'flavors': [
+                {
+                    'OS-FLV-DISABLED:disabled': fakes.FLAVORS['2'].disabled,
+                    'OS-FLV-EXT-DATA:ephemeral':
+                        fakes.FLAVORS['2'].ephemeral_gb,
+                    'description': fakes.FLAVORS['2'].description,
+                    'disk': fakes.FLAVORS['2'].root_gb,
+                    'extra_specs': {},
+                    'id': '2',
+                    'links': [
+                        {
+                            'href': 'http://localhost/v2.1/flavors/2',
+                            'rel': 'self',
+                        },
+                        {
+                            'href': 'http://localhost/flavors/2',
+                            'rel': 'bookmark',
+                        },
+                    ],
+                    'name': fakes.FLAVORS['2'].name,
+                    'os-flavor-access:is_public': True,
+                    'ram': fakes.FLAVORS['2'].memory_mb,
+                    'rxtx_factor': '',
+                    'swap': fakes.FLAVORS['2'].swap,
+                    'vcpus': fakes.FLAVORS['2'].vcpus,
+                },
+            ],
+        }
+        self.assertEqual(expected, actual)
 
 
 class DisabledFlavorsWithRealDBTestV21(test.TestCase):

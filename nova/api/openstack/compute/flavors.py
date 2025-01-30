@@ -137,7 +137,8 @@ class FlavorsController(wsgi.Controller):
 
     @wsgi.expected_errors(400)
     @validation.query_schema(schema.index_query, '2.0', '2.74')
-    @validation.query_schema(schema.index_query_275, '2.75')
+    @validation.query_schema(schema.index_query_v275, '2.75', '2.101')
+    @validation.query_schema(schema.index_query_v2102, '2.102')
     @validation.response_body_schema(schema.index_response, '2.0', '2.54')
     @validation.response_body_schema(schema.index_response_v255, '2.55')
     def index(self, req):
@@ -147,7 +148,8 @@ class FlavorsController(wsgi.Controller):
 
     @wsgi.expected_errors(400)
     @validation.query_schema(schema.index_query, '2.0', '2.74')
-    @validation.query_schema(schema.index_query_275, '2.75')
+    @validation.query_schema(schema.index_query_v275, '2.75', '2.101')
+    @validation.query_schema(schema.index_query_v2102, '2.102')
     @validation.response_body_schema(schema.detail_response, '2.0', '2.54')
     @validation.response_body_schema(schema.detail_response_v255, '2.55', '2.60')  # noqa: E501
     @validation.response_body_schema(schema.detail_response_v261, '2.61')
@@ -231,6 +233,9 @@ class FlavorsController(wsgi.Controller):
                 msg = (_('Invalid minDisk filter [%s]') %
                        req.params['minDisk'])
                 raise webob.exc.HTTPBadRequest(explanation=msg)
+
+        if 'name' in req.params:
+            filters['name'] = req.params['name']
 
         try:
             limited_flavors = objects.FlavorList.get_all(

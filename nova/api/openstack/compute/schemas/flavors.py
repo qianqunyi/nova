@@ -136,8 +136,12 @@ index_query = {
     'additionalProperties': True
 }
 
-index_query_275 = copy.deepcopy(index_query)
-index_query_275['additionalProperties'] = False
+index_query_v275 = copy.deepcopy(index_query)
+index_query_v275['additionalProperties'] = False
+
+index_query_v2102 = copy.deepcopy(index_query_v275)
+index_query_v2102['properties']['name'] = parameter_types.multi_params(
+    {'type': 'string'})
 
 # TODO(stephenfin): Remove additionalProperties in a future API version
 show_query = {
