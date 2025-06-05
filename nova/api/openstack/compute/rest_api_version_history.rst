@@ -1315,8 +1315,8 @@ volume-attachment process finished.
 
 .. _microversion 2.102:
 
-2.102 (Maximum in 2026.1 Gazpacho)
-----------------------------------
+2.102
+-----
 
 The ``GET /flavors`` API now accepts a ``name`` filter to filter the returned
 flavors by name. In addition, the ``rxtx_factor`` and
@@ -1326,3 +1326,12 @@ creating a server and the ``rxtx_factor`` filter can no longer be provided when
 listing flavors. Finally, all APIs now reject unknown query string parameters
 with a HTTP 400 (Bad Request) error, building upon work first started in
 microversion 2.75.
+
+.. _microversion 2.103:
+
+2.103 (Maximum in 2026.1 Gazpacho)
+----------------------------------
+
+The ``/os-volumes_boot`` API is an old alias for the ``/servers`` API and was
+undocumented and untested. It has now been removed and will return HTTP 404 for
+all requests.
