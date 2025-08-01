@@ -431,9 +431,13 @@ class ServersPolicyTest(base.BasePolicyTest):
     @mock.patch('nova.objects.BlockDeviceMappingList.bdms_by_instance_uuid')
     @mock.patch.object(InstanceGroup, 'get_by_instance_uuid')
     @mock.patch('nova.compute.api.API.update_instance')
-    def test_server_update_with_extra_specs_policy(self,
-            mock_update, mock_group, mock_bdm):
+    def test_server_update_with_extra_specs_policy(
+        self, mock_update, mock_group, mock_bdm,
+    ):
         mock_update.return_value = self.instance
+        mock_group.return_value = objects.InstanceGroup(
+            uuid=uuids.server_group)
+
         rule = policies.SERVERS % 'update'
         # server 'update' policy is checked before flavor extra specs
         # policy so we have to allow it for everyone otherwise it will fail
@@ -582,6 +586,7 @@ class ServersPolicyTest(base.BasePolicyTest):
 
     @mock.patch('nova.compute.api.API.update_instance')
     def test_update_server_policy(self, mock_update):
+        mock_update.return_value = self.instance
         rule_name = policies.SERVERS % 'update'
         body = {'server': {'name': 'test'}}
 
@@ -607,7 +612,10 @@ class ServersPolicyTest(base.BasePolicyTest):
 
     @mock.patch('nova.compute.api.API.update_instance')
     def test_update_server_overridden_policy_pass_with_same_user(
-        self, mock_update):
+        self, mock_update,
+    ):
+        mock_update.return_value = self.instance
+
         rule_name = policies.SERVERS % 'update'
         self.policy.set_rules({rule_name: "user_id:%(user_id)s"},
             overwrite=False)
@@ -977,10 +985,14 @@ class ServersPolicyTest(base.BasePolicyTest):
     @mock.patch.object(InstanceGroup, 'get_by_instance_uuid')
     @mock.patch('nova.compute.api.API.update_instance')
     @mock.patch('nova.compute.api.API.get_instance_host_status')
-    def test_server_update_with_extended_attr_policy(self,
-        mock_status, mock_update, mock_group, mock_bdm):
-        mock_update.return_value = self.instance
+    def test_server_update_with_extended_attr_policy(
+        self, mock_status, mock_update, mock_group, mock_bdm
+    ):
         mock_status.return_value = fields.HostStatus.UP
+        mock_update.return_value = self.instance
+        mock_group.return_value = objects.InstanceGroup(
+            uuid=uuids.server_group)
+
         rule = policies.SERVERS % 'update'
         # server 'update' policy is checked before extended attributes
         # policy so we have to allow it for everyone otherwise it will fail
@@ -1075,10 +1087,14 @@ class ServersPolicyTest(base.BasePolicyTest):
     @mock.patch.object(InstanceGroup, 'get_by_instance_uuid')
     @mock.patch('nova.compute.api.API.update_instance')
     @mock.patch('nova.compute.api.API.get_instance_host_status')
-    def test_server_update_with_host_status_policy(self,
-        mock_status, mock_update, mock_group, mock_bdm):
-        mock_update.return_value = self.instance
+    def test_server_update_with_host_status_policy(
+        self, mock_status, mock_update, mock_group, mock_bdm,
+    ):
         mock_status.return_value = fields.HostStatus.UP
+        mock_update.return_value = self.instance
+        mock_group.return_value = objects.InstanceGroup(
+            uuid=uuids.server_group)
+
         rule = policies.SERVERS % 'update'
         # server 'update' policy is checked before host_status
         # policy so we have to allow it for everyone otherwise it will fail
@@ -1192,10 +1208,14 @@ class ServersPolicyTest(base.BasePolicyTest):
     @mock.patch('nova.compute.api.API.get_instance_host_status')
     @mock.patch.object(InstanceGroup, 'get_by_instance_uuid')
     @mock.patch('nova.compute.api.API.update_instance')
-    def test_server_update_with_unknown_host_status_policy(self,
-        mock_update, mock_group, mock_status, mock_bdm):
+    def test_server_update_with_unknown_host_status_policy(
+        self, mock_update, mock_group, mock_status, mock_bdm,
+    ):
         mock_update.return_value = self.instance
         mock_status.return_value = fields.HostStatus.UNKNOWN
+        mock_group.return_value = objects.InstanceGroup(
+            uuid=uuids.server_group)
+
         rule = policies.SERVERS % 'update'
         # server 'update' policy is checked before unknown host_status
         # policy so we have to allow it for everyone otherwise it will fail
@@ -1221,8 +1241,7 @@ class ServersPolicyTest(base.BasePolicyTest):
             self.assertNotIn('host_status', resp['server'])
 
     @mock.patch('nova.compute.api.API.create')
-    def test_create_requested_destination_server_policy(self,
-        mock_create):
+    def test_create_requested_destination_server_policy(self, mock_create):
         # 'create' policy is checked before 'create:requested_destination' so
         # we have to allow it for everyone otherwise it will
         # fail for unauthorized contexts here.
