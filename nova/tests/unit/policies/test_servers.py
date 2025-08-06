@@ -78,8 +78,8 @@ class ServersPolicyTest(base.BasePolicyTest):
             hostname='foo', launch_index=0)
 
         self.mock_flavor = self.useFixture(
-            fixtures.MockPatch('nova.compute.flavors.get_flavor_by_flavor_id'
-                )).mock
+            fixtures.MockPatch('nova.compute.flavors.get_flavor_by_flavor_id')
+        ).mock
         self.mock_flavor.return_value = fake_flavor.fake_flavor_obj(
                 self.req.environ['nova.context'], flavorid='1')
 
@@ -109,12 +109,13 @@ class ServersPolicyTest(base.BasePolicyTest):
             )
         )
 
-        self.servers = [fakes.stub_instance_obj(
-            1, vm_state=vm_states.ACTIVE, uuid=uuids.fake,
-            project_id=self.project_id, user_id='user1'),
-                        fakes.stub_instance_obj(
-            2, vm_state=vm_states.ACTIVE, uuid=uuids.fake,
-            project_id='proj2', user_id='user2')]
+        self.servers = [
+            fakes.stub_instance_obj(
+                1, vm_state=vm_states.ACTIVE, uuid=uuids.fake,
+                project_id=self.project_id, user_id=uuids.user_a_id),
+            fakes.stub_instance_obj(
+                2, vm_state=vm_states.ACTIVE, uuid=uuids.fake,
+                project_id=self.project_id_other, user_id=uuids.user_b_id)]
         fakes.stub_out_secgroup_api(
             self, security_groups=[{'name': 'default'}])
         self.mock_get_all = self.useFixture(fixtures.MockPatchObject(
@@ -126,7 +127,8 @@ class ServersPolicyTest(base.BasePolicyTest):
                 'flavorRef': uuids.fake_id,
             },
         }
-        self.extended_attr = ['OS-EXT-SRV-ATTR:host',
+        self.extended_attr = [
+            'OS-EXT-SRV-ATTR:host',
             'OS-EXT-SRV-ATTR:hypervisor_hostname',
             'OS-EXT-SRV-ATTR:instance_name',
             'OS-EXT-SRV-ATTR:hostname',

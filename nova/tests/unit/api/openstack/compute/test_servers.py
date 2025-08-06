@@ -1732,8 +1732,8 @@ class ServersControllerTest(_ServersControllerTest):
             return objects.InstanceList(
                 objects=[fakes.stub_instance_obj(None,
                                                  id=i + 1,
-                                                 user_id='fake',
-                                                 project_id='fake',
+                                                 user_id=uuids.user_id,
+                                                 project_id=uuids.project_id,
                                                  host=i % 2,
                                                  uuid=fakes.get_fake_uuid(i))
                     for i in range(5)])
