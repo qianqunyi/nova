@@ -458,6 +458,21 @@ class ServersController(wsgi.Controller):
 
     @wsgi.expected_errors(404)
     @validation.query_schema(schema.show_query)
+    @validation.response_body_schema(schema.show_response, '2.0', '2.2')
+    @validation.response_body_schema(schema.show_response_v23, '2.3', '2.8')
+    @validation.response_body_schema(schema.show_response_v29, '2.9', '2.15')
+    @validation.response_body_schema(schema.show_response_v216, '2.16', '2.18')
+    @validation.response_body_schema(schema.show_response_v219, '2.19', '2.25')
+    @validation.response_body_schema(schema.show_response_v226, '2.26', '2.46')
+    @validation.response_body_schema(schema.show_response_v247, '2.47', '2.62')
+    @validation.response_body_schema(schema.show_response_v263, '2.63', '2.68')
+    @validation.response_body_schema(schema.show_response_v269, '2.69', '2.70')
+    @validation.response_body_schema(schema.show_response_v271, '2.71', '2.72')
+    @validation.response_body_schema(schema.show_response_v273, '2.73', '2.89')
+    @validation.response_body_schema(schema.show_response_v290, '2.90', '2.95')
+    @validation.response_body_schema(schema.show_response_v296, '2.96', '2.97')
+    @validation.response_body_schema(schema.show_response_v298, '2.98', '2.99')
+    @validation.response_body_schema(schema.show_response_v2100, '2.100')
     def show(self, req, id):
         """Returns server details by server id."""
         context = req.environ['nova.context']
@@ -1163,8 +1178,8 @@ class ServersController(wsgi.Controller):
     @validation.response_body_schema(schema.rebuild_response, '2.0', '2.8')
     @validation.response_body_schema(schema.rebuild_response_v29, '2.9', '2.18')  # noqa: E501
     @validation.response_body_schema(schema.rebuild_response_v219, '2.19', '2.25')  # noqa: E501
-    @validation.response_body_schema(schema.rebuild_response_v226, '2.26', '2.45')  # noqa: E501
-    @validation.response_body_schema(schema.rebuild_response_v246, '2.46', '2.53')  # noqa: E501
+    @validation.response_body_schema(schema.rebuild_response_v226, '2.26', '2.46')  # noqa: E501
+    @validation.response_body_schema(schema.rebuild_response_v247, '2.47', '2.53')  # noqa: E501
     @validation.response_body_schema(schema.rebuild_response_v254, '2.54', '2.56')  # noqa: E501
     @validation.response_body_schema(schema.rebuild_response_v257, '2.57', '2.62')  # noqa: E501
     @validation.response_body_schema(schema.rebuild_response_v263, '2.63', '2.70')  # noqa: E501

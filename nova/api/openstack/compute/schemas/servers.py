@@ -15,6 +15,7 @@
 import copy
 
 from nova.api.validation import parameter_types
+from nova.api.validation import response_types
 from nova.objects import instance
 
 _legacy_block_device_mapping = {
@@ -87,8 +88,19 @@ _hints = {
     'type': 'object',
     'properties': {
         'group': {
-            'type': 'string',
-            'format': 'uuid'
+            'oneOf': [
+                {
+                    'type': 'array',
+                    'items': {
+                        'type': 'string',
+                        'format': 'uuid'
+                    },
+                },
+                {
+                    'type': 'string',
+                    'format': 'uuid'
+                },
+            ],
         },
         'different_host': {
             # NOTE: The value of 'different_host' is the set of server
@@ -607,7 +619,6 @@ VALID_SORT_KEYS_V275['enum'] = list(
     set(VALID_SORT_KEYS_V273["enum"]) - set(SERVER_LIST_IGNORE_SORT_KEY_V273)
 )
 
-
 query_params_v21 = {
     'type': 'object',
     'properties': {
@@ -720,6 +731,459 @@ show_query = {
     'additionalProperties': True,
 }
 
+_server_cell_down_response = {
+    'type': 'object',
+    'properties': {
+        'created': {'type': 'string', 'format': 'date-time'},
+        'flavor': {
+            'type': 'object',
+            'properties': {
+                'disk': {'type': 'integer'},
+                'ephemeral': {'type': 'integer'},
+                'extra_specs': {
+                    'type': 'object',
+                    'patternProperties': {
+                        '^.+$': {'type': 'string'},
+                    },
+                    'additionalProperties': False,
+                },
+                'original_name': {'type': 'string'},
+                'ram': {'type': 'integer'},
+                'swap': {'type': 'integer'},
+                'vcpus': {'type': 'integer'},
+            },
+            # extra_specs is only show if policy allows
+            'required': [
+                'disk', 'ephemeral', 'original_name', 'ram', 'swap', 'vcpus'
+            ],
+            'additionalProperties': False,
+        },
+        'id': {'type': 'string', 'format': 'uuid'},
+        'image': {
+            'oneOf': [
+                {'type': 'string', 'const': ''},
+                {
+                    'type': 'object',
+                    'properties': {
+                        'id': {'type': 'string', 'format': 'uuid'},
+                        'links': response_types.links,
+                    },
+                    'additionalProperties': False,
+                },
+            ],
+        },
+        'links': response_types.links,
+        'status': {'type': 'string', 'const': 'UNKNOWN'},
+        'tenant_id': parameter_types.project_id,
+        'user_id': parameter_types.user_id,
+        'OS-EXT-AZ:availability_zone': {'type': 'string'},
+        'OS-EXT-STS:power_state': {
+            'type': ['integer', 'null'], 'enum': [0, 1, 3, 4, 6, 7, None],
+        },
+    },
+    'required': [
+        'created',
+        'flavor',
+        'id',
+        'image',
+        'links',
+        'status',
+        'tenant_id',
+        'user_id',
+        'OS-EXT-AZ:availability_zone',
+        'OS-EXT-STS:power_state',
+    ],
+    'additionalProperties': False,
+}
+
+_server_cell_down_response_v271 = copy.deepcopy(_server_cell_down_response)
+_server_cell_down_response_v271['properties'].update({
+    'server_groups': {
+        'type': 'array',
+        'items': {'type': 'string', 'format': 'uuid'},
+        'maxLength': 1,
+    },
+})
+_server_cell_down_response_v271['required'].append('server_groups')
+
+_server_response = {
+    'type': 'object',
+    'properties': {
+        'accessIPv4': {
+            'type': 'string',
+            'oneOf': [{'format': 'ipv4'}, {'const': ''}],
+        },
+        'accessIPv6': {
+            'type': 'string',
+            'oneOf': [{'format': 'ipv6'}, {'const': ''}],
+        },
+        'addresses': {
+            'type': 'object',
+            'patternProperties': {
+                '^.+$': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'addr': {
+                                'type': 'string',
+                                'oneOf': [
+                                    {'format': 'ipv4'},
+                                    {'format': 'ipv6'},
+                                ],
+                            },
+                            'version': {
+                                'type': 'number', 'enum': [4, 6],
+                            },
+                            'OS-EXT-IPS:type': {
+                                'type': 'string',
+                                'enum': ['fixed', 'floating'],
+                            },
+                            'OS-EXT-IPS-MAC:mac_addr': {
+                                'type': 'string', 'format': 'mac-address',
+                            },
+                        },
+                        'required': [
+                            'addr',
+                            'version',
+                            'OS-EXT-IPS:type',
+                            'OS-EXT-IPS-MAC:mac_addr',
+                        ],
+                        'additionalProperties': False,
+                    },
+                },
+            },
+            'additionalProperties': False,
+        },
+        'adminPass': {'type': ['null', 'string']},
+        'config_drive': {
+            'type': ['string', 'null'], 'enum': ['', 'True', 'False', None],
+        },
+        'created': {'type': 'string', 'format': 'date-time'},
+        'fault': {
+            'type': 'object',
+            'properties': {
+                'code': {'type': 'integer'},
+                'created': {'type': 'string', 'format': 'date-time'},
+                'details': {'type': 'string'},
+                'message': {'type': 'string'},
+            },
+            'required': ['code', 'created', 'message'],
+            'additionalProperties': False,
+        },
+        'flavor': {
+            'type': 'object',
+            'properties': {
+                'id': {'type': 'string'},
+                'links': response_types.links,
+            },
+            'additionalProperties': False,
+        },
+        'hostId': {'type': 'string'},
+        'id': {'type': 'string', 'format': 'uuid'},
+        'image': {
+            'oneOf': [
+                {'type': 'string', 'const': ''},
+                {
+                    'type': 'object',
+                    'properties': {
+                        'id': {'type': 'string', 'format': 'uuid'},
+                        'links': response_types.links,
+                    },
+                    'additionalProperties': False,
+                },
+            ],
+        },
+        'key_name': {'type': ['null', 'string']},
+        'links': response_types.links,
+        'metadata': {
+            'type': 'object',
+            'patternProperties': {
+                '^.+$': {
+                    'type': 'string'
+                },
+            },
+            'additionalProperties': False,
+        },
+        'name': {'type': ['string', 'null']},
+        'os-extended-volumes:volumes_attached': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'id': {'type': 'string'},
+                },
+                'required': ['id'],
+                'additionalProperties': False,
+            },
+        },
+        'progress': {'type': ['null', 'number']},
+        'security_groups': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'name': {'type': 'string'},
+                },
+                'required': ['name'],
+                'additionalProperties': False,
+            },
+        },
+        'status': {'type': 'string'},
+        'tenant_id': parameter_types.project_id,
+        'updated': {'type': 'string', 'format': 'date-time'},
+        'user_id': parameter_types.user_id,
+        'OS-DCF:diskConfig': {'type': 'string'},
+        'OS-EXT-AZ:availability_zone': {'type': 'string'},
+        'OS-EXT-SRV-ATTR:host': {'type': ['string', 'null']},
+        'OS-EXT-SRV-ATTR:hypervisor_hostname': {
+            'type': ['string', 'null']
+        },
+        'OS-EXT-SRV-ATTR:instance_name': {'type': 'string'},
+        'OS-EXT-STS:power_state': {
+            'type': ['integer', 'null'], 'enum': [0, 1, 3, 4, 6, 7, None],
+        },
+        'OS-EXT-STS:task_state': {'type': ['string', 'null']},
+        'OS-EXT-STS:vm_state': {'type': ['string', 'null']},
+        'OS-SRV-USG:launched_at': {
+            'type': ['string', 'null'], 'format': 'date-time',
+        },
+        'OS-SRV-USG:terminated_at': {
+            'type': ['string', 'null'], 'format': 'date-time',
+        },
+    },
+    'required': [
+        # fault, progress depend on server state
+        'accessIPv4',
+        'accessIPv6',
+        'addresses',
+        'config_drive',
+        'created',
+        'flavor',
+        'hostId',
+        'id',
+        'image',
+        'key_name',
+        'links',
+        'metadata',
+        'name',
+        'os-extended-volumes:volumes_attached',
+        'status',
+        'tenant_id',
+        'updated',
+        'user_id',
+        'OS-DCF:diskConfig',
+        'OS-EXT-AZ:availability_zone',
+        'OS-EXT-STS:power_state',
+        'OS-EXT-STS:task_state',
+        'OS-EXT-STS:vm_state',
+        'OS-SRV-USG:launched_at',
+        'OS-SRV-USG:terminated_at',
+    ],
+    'additionalProperties': False,
+}
+
+_server_response_v23 = copy.deepcopy(_server_response)
+# all of these are behind policy, so we don't need to update 'required'
+_server_response_v23['properties'].update({
+    'OS-EXT-SRV-ATTR:hostname': {'type': 'string'},
+    'OS-EXT-SRV-ATTR:kernel_id': {'type': ['string', 'null']},
+    'OS-EXT-SRV-ATTR:launch_index': {'type': 'integer'},
+    'OS-EXT-SRV-ATTR:ramdisk_id': {'type': ['string', 'null']},
+    'OS-EXT-SRV-ATTR:reservation_id': {'type': ['string', 'null']},
+    'OS-EXT-SRV-ATTR:root_device_name': {'type': ['string', 'null']},
+    'OS-EXT-SRV-ATTR:user_data': {
+        'type': ['string', 'null'], 'format': 'base64', 'maxLength': 65535,
+    },
+})
+_server_response_v23['properties']['os-extended-volumes:volumes_attached'] = {
+    'type': 'array',
+    'items': {
+        'type': 'object',
+        'properties': {
+            'id': {'type': 'string'},
+            'delete_on_termination': {
+                'type': 'boolean',
+                'default': False,
+            },
+        },
+        'required': ['id', 'delete_on_termination'],
+        'additionalProperties': False,
+    },
+}
+
+_server_response_v29 = copy.deepcopy(_server_response_v23)
+_server_response_v29['properties'].update({
+    'locked': {'type': 'boolean'},
+})
+_server_response_v29['required'].append('locked')
+
+_server_response_v216 = copy.deepcopy(_server_response_v29)
+_server_response_v216['properties'].update({
+    'host_status': {
+        'type': 'string', 'enum': ['UP', 'DOWN', 'MAINTENANCE', 'UNKNOWN', '']
+    },
+})
+
+_server_response_v219 = copy.deepcopy(_server_response_v216)
+_server_response_v219['properties'].update({
+    'description': {'type': ['string', 'null']},
+})
+_server_response_v219['required'].append('description')
+
+_server_response_v226 = copy.deepcopy(_server_response_v219)
+_server_response_v226['properties'].update({
+    'tags': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 50},
+})
+_server_response_v226['required'].append('tags')
+
+_server_response_v247 = copy.deepcopy(_server_response_v226)
+_server_response_v247['properties']['flavor'] = {
+    'type': 'object',
+    'properties': {
+        'disk': {'type': 'integer'},
+        'ephemeral': {'type': 'integer'},
+        'extra_specs': {
+            'type': 'object',
+            'patternProperties': {
+                '^.+$': {'type': 'string'},
+            },
+            'additionalProperties': False,
+        },
+        'original_name': {'type': 'string'},
+        'ram': {'type': 'integer'},
+        'swap': {'type': 'integer'},
+        'vcpus': {'type': 'integer'},
+    },
+    # extra_specs is only show if policy allows
+    'required': [
+        'disk', 'ephemeral', 'original_name', 'ram', 'swap', 'vcpus'
+    ],
+    'additionalProperties': False,
+}
+
+_server_response_v263 = copy.deepcopy(_server_response_v247)
+_server_response_v263['properties'].update({
+    'trusted_image_certificates': {
+        'type': ['array', 'null'],
+        'items': {'type': 'string'},
+    },
+})
+_server_response_v263['required'].append('trusted_image_certificates')
+
+_server_response_v271 = copy.deepcopy(_server_response_v263)
+_server_response_v271['properties'].update({
+    'server_groups': {
+        'type': 'array',
+        'items': {'type': 'string', 'format': 'uuid'},
+        'maxLength': 1,
+    },
+})
+_server_response_v271['required'].append('server_groups')
+
+_server_response_v273 = copy.deepcopy(_server_response_v271)
+_server_response_v273['properties'].update({
+    'locked_reason': {'type': ['null', 'string']},
+})
+_server_response_v273['required'].append('locked_reason')
+
+_server_response_v290 = copy.deepcopy(_server_response_v273)
+_server_response_v290['required'].append('OS-EXT-SRV-ATTR:hostname')
+
+_server_response_v296 = copy.deepcopy(_server_response_v290)
+_server_response_v296['properties'].update({
+    'pinned_availability_zone': {'type': ['string', 'null']},
+})
+_server_response_v296['required'].append('pinned_availability_zone')
+
+_server_response_v298 = copy.deepcopy(_server_response_v296)
+_server_response_v298['properties']['image']['oneOf'][1]['properties'].update({
+    'properties': {
+        'type': 'object',
+        'patternProperties': {
+            '^[a-zA-Z0-9_:. ]{1,255}$': {
+                'type': ['string', 'null'],
+                'maxLength': 255,
+            },
+        },
+        'additionalProperties': False,
+    },
+})
+
+_server_response_v2100 = copy.deepcopy(_server_response_v298)
+_server_response_v2100['properties'].update({
+    'scheduler_hints': _hints,
+})
+_server_response_v2100['required'].append('scheduler_hints')
+
+
+show_response = {
+    'type': 'object',
+    'properties': {
+        'server': _server_response,
+    },
+    'required': ['server'],
+    'additionalProperties': False,
+}
+
+show_response_v23 = copy.deepcopy(show_response)
+show_response_v23['properties']['server'] = _server_response_v23
+
+show_response_v29 = copy.deepcopy(show_response_v23)
+show_response_v29['properties']['server'] = _server_response_v29
+
+show_response_v216 = copy.deepcopy(show_response_v29)
+show_response_v216['properties']['server'] = _server_response_v216
+
+show_response_v219 = copy.deepcopy(show_response_v216)
+show_response_v219['properties']['server'] = _server_response_v219
+
+show_response_v226 = copy.deepcopy(show_response_v219)
+show_response_v226['properties']['server'] = _server_response_v226
+
+show_response_v247 = copy.deepcopy(show_response_v226)
+show_response_v247['properties']['server'] = _server_response_v247
+
+show_response_v263 = copy.deepcopy(show_response_v247)
+show_response_v263['properties']['server'] = _server_response_v263
+
+# this is the first version to introduce down cell support. We model this as an
+# entirely different schema rather than making most of the fields optional
+show_response_v269 = copy.deepcopy(show_response_v263)
+show_response_v269['properties']['server'] = {
+    'oneOf': [_server_response_v263, _server_cell_down_response],
+}
+
+show_response_v271 = copy.deepcopy(show_response_v269)
+show_response_v271['properties']['server'] = {
+    'oneOf': [_server_response_v271, _server_cell_down_response_v271],
+}
+
+show_response_v273 = copy.deepcopy(show_response_v271)
+show_response_v273['properties']['server'] = {
+    'oneOf': [_server_response_v273, _server_cell_down_response_v271],
+}
+
+show_response_v290 = copy.deepcopy(show_response_v273)
+show_response_v290['properties']['server'] = {
+    'oneOf': [_server_response_v290, _server_cell_down_response_v271],
+}
+
+show_response_v296 = copy.deepcopy(show_response_v290)
+show_response_v296['properties']['server'] = {
+    'oneOf': [_server_response_v296, _server_cell_down_response_v271],
+}
+
+show_response_v298 = copy.deepcopy(show_response_v290)
+show_response_v298['properties']['server'] = {
+    'oneOf': [_server_response_v298, _server_cell_down_response_v271],
+}
+
+show_response_v2100 = copy.deepcopy(show_response_v298)
+show_response_v2100['properties']['server'] = {
+    'oneOf': [_server_response_v2100, _server_cell_down_response_v271],
+}
+
 resize_response = {'type': 'null'}
 
 confirm_resize_response = {'type': 'null'}
@@ -739,7 +1203,7 @@ create_image_response = {'type': 'null'}
 create_image_response_v245 = {
     'type': 'object',
     'properties': {
-        'image_id': {'type': 'string', 'format': 'uuid'},
+        'image_id': {'type': ['string', 'null'], 'format': 'uuid'},
     },
     'required': ['image_id'],
     'additionalProperties': False,
@@ -803,20 +1267,7 @@ rebuild_response = {
                     'type': 'object',
                     'properties': {
                         'id': {'type': 'string'},
-                        'links': {
-                            'type': 'array',
-                            'items': {
-                                'type': 'object',
-                                'properties': {
-                                    'href': {
-                                        'type': 'string', 'format': 'uri',
-                                    },
-                                    'rel': {'type': 'string'},
-                                },
-                                'required': ['href', 'rel'],
-                                "additionalProperties": False,
-                            },
-                        },
+                        'links': response_types.links,
                     },
                     'additionalProperties': False,
                 },
@@ -828,39 +1279,14 @@ rebuild_response = {
                         {
                             'type': 'object',
                             'properties': {
-                                'id': {'type': 'string'},
-                                'links': {
-                                    'type': 'array',
-                                    'items': {
-                                        'type': 'object',
-                                        'properties': {
-                                            'href': {
-                                                'type': 'string',
-                                                'format': 'uri',
-                                            },
-                                            'rel': {'type': 'string'},
-                                        },
-                                        'required': ['href', 'rel'],
-                                        "additionalProperties": False,
-                                    },
-                                },
+                                'id': {'type': 'string', 'format': 'uuid'},
+                                'links': response_types.links,
                             },
                             'additionalProperties': False,
                         },
                     ],
                 },
-                'links': {
-                    'type': 'array',
-                    'items': {
-                        'type': 'object',
-                        'properties': {
-                            'href': {'type': 'string', 'format': 'uri'},
-                            'rel': {'type': 'string'},
-                        },
-                        'required': ['href', 'rel'],
-                        'additionalProperties': False,
-                    },
-                },
+                'links': response_types.links,
                 'metadata': {
                     'type': 'object',
                     'patternProperties': {
@@ -926,8 +1352,8 @@ rebuild_response_v226['properties']['server']['required'].append('tags')
 
 # NOTE(stephenfin): We overwrite rather than extend 'flavor', since we now
 # embed the flavor in this version
-rebuild_response_v246 = copy.deepcopy(rebuild_response_v226)
-rebuild_response_v246['properties']['server']['properties']['flavor'] = {
+rebuild_response_v247 = copy.deepcopy(rebuild_response_v226)
+rebuild_response_v247['properties']['server']['properties']['flavor'] = {
     'type': 'object',
     'properties': {
         'disk': {'type': 'integer'},
@@ -946,7 +1372,7 @@ rebuild_response_v246['properties']['server']['properties']['flavor'] = {
     'additionalProperties': False,
 }
 
-rebuild_response_v254 = copy.deepcopy(rebuild_response_v246)
+rebuild_response_v254 = copy.deepcopy(rebuild_response_v247)
 rebuild_response_v254['properties']['server']['properties']['key_name'] = {
     'type': ['null', 'string'],
 }
@@ -1014,10 +1440,10 @@ rebuild_response_v275['properties']['server']['properties'].update(
         'OS-EXT-SRV-ATTR:reservation_id': {'type': ['string', 'null']},
         'OS-EXT-SRV-ATTR:root_device_name': {'type': ['string', 'null']},
         'OS-EXT-STS:power_state': {
-            'type': 'integer', 'enum': [0, 1, 3, 4, 6, 7],
+            'type': ['integer', 'null'], 'enum': [0, 1, 3, 4, 6, 7, None],
         },
-        'OS-EXT-STS:task_state': {'type': ['null', 'string']},
-        'OS-EXT-STS:vm_state': {'type': 'string'},
+        'OS-EXT-STS:task_state': {'type': ['string', 'null']},
+        'OS-EXT-STS:vm_state': {'type': ['string', 'null']},
         'os-extended-volumes:volumes_attached': {
             'type': 'array',
             'items': {
@@ -1091,7 +1517,9 @@ rebuild_response_v298['properties']['server']['properties']['image']['oneOf'][
     'properties': {
         'type': 'object',
         'patternProperties': {
-            '^[a-zA-Z0-9_:. ]{1,255}$': {'type': 'string', 'maxLength': 255},
+            '^[a-zA-Z0-9_:. ]{1,255}$': {
+                'type': ['string', 'null'], 'maxLength': 255
+            },
         },
         'additionalProperties': False,
     },

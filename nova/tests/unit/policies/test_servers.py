@@ -344,7 +344,8 @@ class ServersPolicyTest(base.BasePolicyTest):
             self.req, self.instance.uuid)
 
     @mock.patch('nova.objects.BlockDeviceMappingList.bdms_by_instance_uuid')
-    @mock.patch('nova.compute.api.API.get_instance_host_status')
+    @mock.patch('nova.compute.api.API.get_instance_host_status',
+                return_value=fields.HostStatus.UP)
     def test_server_show_with_extra_specs_policy(self, mock_get, mock_block):
         rule = policies.SERVERS % 'show'
         # server 'show' policy is checked before flavor extra specs
@@ -1012,9 +1013,11 @@ class ServersPolicyTest(base.BasePolicyTest):
             self.assertNotIn('host_status', resp['servers'][0])
 
     @mock.patch('nova.objects.BlockDeviceMappingList.bdms_by_instance_uuid')
-    @mock.patch('nova.compute.api.API.get_instance_host_status')
-    def test_server_show_with_host_status_policy(self,
-        mock_status, mock_block):
+    @mock.patch('nova.compute.api.API.get_instance_host_status',
+                return_value=fields.HostStatus.UP)
+    def test_server_show_with_host_status_policy(
+        self, mock_status, mock_block,
+    ):
         rule = policies.SERVERS % 'show'
         # server 'show' policy is checked before host_status
         # policy so we have to allow it for everyone otherwise it will fail
@@ -1035,8 +1038,9 @@ class ServersPolicyTest(base.BasePolicyTest):
     @mock.patch('nova.compute.api.API.get_instance_host_status',
                 return_value=fields.HostStatus.UP)
     @mock.patch('nova.compute.api.API.rebuild')
-    def test_server_rebuild_with_host_status_policy(self, mock_rebuild,
-        mock_status, mock_bdm):
+    def test_server_rebuild_with_host_status_policy(
+        self, mock_rebuild, mock_status, mock_bdm,
+    ):
         rule = policies.SERVERS % 'rebuild'
         # server 'rebuild' policy is checked before host_status
         # policy so we have to allow it for everyone otherwise it will fail
