@@ -12,19 +12,23 @@
 
 import copy
 
-# TODO(stephenfin): Remove additionalProperties in a future API version
 index_query = {
     'type': 'object',
     'properties': {},
     'additionalProperties': True,
 }
 
-# TODO(stephenfin): Remove additionalProperties in a future API version
+index_query_v2102 = copy.deepcopy(index_query)
+index_query_v2102['additionalProperties'] = False
+
 show_query = {
     'type': 'object',
     'properties': {},
     'additionalProperties': True,
 }
+
+show_query_v2102 = copy.deepcopy(show_query)
+show_query_v2102['additionalProperties'] = False
 
 _ip_address = {
     'type': 'object',

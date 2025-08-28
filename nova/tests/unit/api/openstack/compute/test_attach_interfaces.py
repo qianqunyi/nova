@@ -184,6 +184,29 @@ class InterfaceAttachTestsV21(test.NoDBTestCase):
                               self.attachments.show, self.req, FAKE_UUID1,
                               FAKE_PORT_ID1)
 
+    def test_show_invalid_query_params(self):
+        req = fakes.HTTPRequest.blank(
+            f'/servers/{FAKE_UUID1}/os-interface/{FAKE_PORT_ID1}?invalid=1',
+            use_admin_context=True, version='2.102')
+        self.assertRaises(
+            exception.ValidationError,
+            self.attachments.show,
+            req,
+            FAKE_UUID1,
+            FAKE_PORT_ID1,
+        )
+
+    def test_index_invalid_query_params(self):
+        req = fakes.HTTPRequest.blank(
+            f'/servers/{FAKE_UUID1}/os-interface?invalid=1',
+            use_admin_context=True, version='2.102')
+        self.assertRaises(
+            exception.ValidationError,
+            self.attachments.index,
+            req,
+            FAKE_UUID1,
+        )
+
     def test_delete(self):
         self.stub_out('nova.compute.api.API.detach_interface',
                       fake_detach_interface)

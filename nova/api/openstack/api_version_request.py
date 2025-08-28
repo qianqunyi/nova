@@ -283,7 +283,8 @@ REST_API_VERSION_HISTORY = """REST API Version History:
               202 Accepted instead of HTTP 200 and a volumeAttachment response.
     * 2.102 - Add support for filtering flavors by name. Remove the deprecated
               ``rxtx_factor`` and ``OS-FLV-DISABLED:disabled`` fields and
-              filters from various flavors APIs.
+              filters from various flavors APIs and restrict additional query
+              string parameters for all APIs.
 """
 
 # The minimum and maximum versions of the API supported
