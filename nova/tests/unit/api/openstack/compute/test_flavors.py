@@ -19,16 +19,13 @@ from urllib import parse as urlparse
 import webob
 
 from nova.api.openstack import common
-from nova.api.openstack.compute import flavors as flavors_v21
+from nova.api.openstack.compute import flavors
 from nova import context
 from nova import exception
 from nova import objects
 from nova import test
 from nova.tests.unit.api.openstack import fakes
 from nova.tests.unit import matchers
-
-NS = "{http://docs.openstack.org/compute/api/v1.1}"
-ATOMNS = "{http://www.w3.org/2005/Atom}"
 
 
 def fake_get_limit_and_marker(request, max_limit=1):
@@ -45,8 +42,6 @@ def return_flavor_not_found(context, flavor_id, read_deleted=None):
 
 
 class FlavorsTestV21(test.TestCase):
-    Controller = flavors_v21.FlavorsController
-    fake_request = fakes.HTTPRequestV21
     microversion = '2.1'
     # Flag to tell the test if a description should be expected in a response.
     expect_description = False
@@ -54,15 +49,15 @@ class FlavorsTestV21(test.TestCase):
     expect_extra_specs = False
 
     def setUp(self):
-        super(FlavorsTestV21, self).setUp()
+        super().setUp()
         fakes.stub_out_networking(self)
         fakes.stub_out_flavor_get_all(self)
         fakes.stub_out_flavor_get_by_flavor_id(self)
-        self.controller = self.Controller()
+        self.controller = flavors.FlavorsController()
 
     def _build_request(self, url):
-        return self.fake_request.blank(
-            '/v2.1' + url, version=self.microversion)
+        return fakes.HTTPRequestV21.blank(
+            url, version=self.microversion, base_url='http://localhost/v2.1')
 
     def _set_expected_body(self, expected, flavor):
         expected['OS-FLV-EXT-DATA:ephemeral'] = flavor.ephemeral_gb
@@ -599,11 +594,11 @@ class FlavorsTestV21(test.TestCase):
                 {
                     "rel": "self",
                     "href": "http://localhost/v2.1/flavors/2",
-                 },
-                 {
+                },
+                {
                     "rel": "bookmark",
                     "href": "http://localhost/flavors/2",
-                  },
+                },
             ],
         }]
         if expected:
@@ -746,19 +741,19 @@ class FlavorsTestV21(test.TestCase):
             '/flavors/detail?is_public=invalid', expected)
 
 
-class FlavorsTestV2_55(FlavorsTestV21):
+class FlavorsTestV255(FlavorsTestV21):
     """Run the same tests as we would for v2.1 but with a description."""
     microversion = '2.55'
     expect_description = True
 
 
-class FlavorsTestV2_61(FlavorsTestV2_55):
+class FlavorsTestV261(FlavorsTestV255):
     """Run the same tests as we would for v2.55 but with a extra_specs."""
     microversion = '2.61'
     expect_extra_specs = True
 
 
-class FlavorsTestV2_75(FlavorsTestV2_61):
+class FlavorsTestV275(FlavorsTestV261):
     microversion = '2.75'
 
     FLAVOR_WITH_NO_SWAP = objects.Flavor(
@@ -779,11 +774,12 @@ class FlavorsTestV2_75(FlavorsTestV2_61):
     )
 
     def test_list_flavors_with_additional_filter_old_version(self):
-        req = self.fake_request.blank(
+        req = fakes.HTTPRequestV21.blank(
             '/flavors?limit=1&marker=1&additional=something',
-            version='2.74')
+            version='2.74', base_url='http://localhost/v2.1')
         self._test_list_flavors_with_allowed_filter(
-            '/flavors?limit=1&marker=1&additional=something', req=req)
+            '/flavors?limit=1&marker=1&additional=something',
+            req=req)
 
     def test_list_detail_flavors_with_additional_filter_old_version(self):
         expected = {
@@ -796,8 +792,9 @@ class FlavorsTestV2_75(FlavorsTestV2_61):
             "OS-FLV-DISABLED:disabled": fakes.FLAVORS['2'].disabled,
             "swap": fakes.FLAVORS['2'].swap
         }
-        req = self.fake_request.blank(
-            '/flavors?limit=1&marker=1&additional=something', version='2.74')
+        req = fakes.HTTPRequestV21.blank(
+            '/flavors?limit=1&marker=1&additional=something',
+            version='2.74', base_url='http://localhost/v2.1')
         self._test_list_flavors_with_allowed_filter(
             '/flavors/detail?limit=1&marker=1&additional=something',
             expected, req=req)
@@ -822,9 +819,8 @@ class FlavorsTestV2_75(FlavorsTestV2_61):
     def test_list_flavor_detail_default_swap_value_old_version(self, mock_get):
         mock_get.return_value = objects.FlavorList(
             objects=[self.FLAVOR_WITH_NO_SWAP])
-        req = self.fake_request.blank(
-            '/%s/flavors/detail?limit=1' % fakes.FAKE_PROJECT_ID,
-            version='2.74')
+        req = fakes.HTTPRequestV21.blank(
+            '/flavors/detail?limit=1', version='2.74')
         response = self.controller.detail(req)
         response_list = response["flavors"]
         self.assertEqual(response_list[0]['swap'], "")
@@ -832,9 +828,8 @@ class FlavorsTestV2_75(FlavorsTestV2_61):
     @mock.patch('nova.objects.Flavor.get_by_flavor_id')
     def test_show_flavor_default_swap_value_old_version(self, mock_get):
         mock_get.return_value = self.FLAVOR_WITH_NO_SWAP
-        req = self.fake_request.blank(
-            '/%s/flavors/detail?limit=1' % fakes.FAKE_PROJECT_ID,
-            version='2.74')
+        req = fakes.HTTPRequestV21.blank(
+            '/flavors/detail?limit=1', version='2.74')
         response = self.controller.show(req, 1)
         response_list = response["flavor"]
         self.assertEqual(response_list['swap'], "")
@@ -843,9 +838,8 @@ class FlavorsTestV2_75(FlavorsTestV2_61):
     def test_list_flavor_detail_default_swap_value(self, mock_get):
         mock_get.return_value = objects.FlavorList(
             objects=[self.FLAVOR_WITH_NO_SWAP])
-        req = self.fake_request.blank(
-            '/%s/flavors/detail?limit=1' % fakes.FAKE_PROJECT_ID,
-            version=self.microversion)
+        req = fakes.HTTPRequestV21.blank(
+            '/flavors/detail?limit=1', version=self.microversion)
         response = self.controller.detail(req)
         response_list = response["flavors"]
         self.assertEqual(response_list[0]['swap'], 0)
@@ -853,9 +847,8 @@ class FlavorsTestV2_75(FlavorsTestV2_61):
     @mock.patch('nova.objects.Flavor.get_by_flavor_id')
     def test_show_flavor_default_swap_value(self, mock_get):
         mock_get.return_value = self.FLAVOR_WITH_NO_SWAP
-        req = self.fake_request.blank(
-            '/%s/flavors/detail?limit=1' % fakes.FAKE_PROJECT_ID,
-            version=self.microversion)
+        req = fakes.HTTPRequestV21.blank(
+            '/flavors/detail?limit=1', version=self.microversion)
         response = self.controller.show(req, 1)
         response_list = response["flavor"]
         self.assertEqual(response_list['swap'], 0)
@@ -863,21 +856,19 @@ class FlavorsTestV2_75(FlavorsTestV2_61):
 
 class DisabledFlavorsWithRealDBTestV21(test.TestCase):
     """Tests that disabled flavors should not be shown nor listed."""
-    Controller = flavors_v21.FlavorsController
-    fake_request = fakes.HTTPRequestV21
 
     def setUp(self):
-        super(DisabledFlavorsWithRealDBTestV21, self).setUp()
+        super().setUp()
 
         # Add a new disabled type to the list of flavors
-        self.req = self.fake_request.blank('/v2.1/flavors')
+        self.req = fakes.HTTPRequestV21.blank('/flavors')
         self.context = self.req.environ['nova.context']
         self.admin_context = context.get_admin_context()
 
         self.disabled_type = self._create_disabled_flavor()
         self.addCleanup(self.disabled_type.destroy)
         self.flavors = objects.FlavorList.get_all(self.admin_context)
-        self.controller = self.Controller()
+        self.controller = flavors.FlavorsController()
 
     def _create_disabled_flavor(self):
         flavor = objects.Flavor(context=self.admin_context,
@@ -938,11 +929,10 @@ class DisabledFlavorsWithRealDBTestV21(test.TestCase):
 
 
 class ParseIsPublicTestV21(test.TestCase):
-    Controller = flavors_v21.FlavorsController
 
     def setUp(self):
-        super(ParseIsPublicTestV21, self).setUp()
-        self.controller = self.Controller()
+        super().setUp()
+        self.controller = flavors.FlavorsController()
 
     def assertPublic(self, expected, is_public):
         self.assertIs(expected, self.controller._parse_is_public(is_public),
@@ -971,4 +961,4 @@ class ParseIsPublicTestV21(test.TestCase):
 
     def test_other(self):
         self.assertRaises(
-                webob.exc.HTTPBadRequest, self.assertPublic, None, 'other')
+            webob.exc.HTTPBadRequest, self.assertPublic, None, 'other')
