@@ -57,7 +57,7 @@ class Schemas:
 
     def add_schema(
         self,
-        schema: tuple[dict[str, object]],
+        schema: dict[str, object],
         min_version: str | None,
         max_version: str | None,
     ) -> None:
@@ -261,10 +261,12 @@ def schema(
             )
             return func(*args, **kwargs)
 
+        # we need to use setattr/getattr here else we see attr-defined errors
+        # since this is not an attribute of Callable
         if not hasattr(wrapper, 'request_body_schemas'):
-            wrapper.request_body_schemas = Schemas()
+            setattr(wrapper, 'request_body_schemas', Schemas())
 
-        wrapper.request_body_schemas.add_schema(
+        getattr(wrapper, 'request_body_schemas').add_schema(
             request_body_schema, min_version, max_version
         )
 
@@ -332,10 +334,12 @@ def response_body_schema(
                     raise
             return response
 
+        # we need to use setattr/getattr here else we see attr-defined errors
+        # since this is not an attribute of Callable
         if not hasattr(wrapper, 'response_body_schemas'):
-            wrapper.response_body_schemas = Schemas()
+            setattr(wrapper, 'response_body_schemas', Schemas())
 
-        wrapper.response_body_schemas.add_schema(
+        getattr(wrapper, 'response_body_schemas').add_schema(
             response_body_schema, min_version, max_version
         )
 
@@ -428,13 +432,21 @@ def query_schema(request_query_schema, min_version=None,
                 _strip_additional_query_parameters(request_query_schema, req)
             return func(*args, **kwargs)
 
+        # we need to use setattr/getattr here else we see attr-defined errors
+        # since this is not an attribute of Callable
         if not hasattr(wrapper, 'request_query_schemas'):
-            wrapper.request_query_schemas = Schemas()
+            setattr(wrapper, 'request_query_schemas', Schemas())
 
-        wrapper.request_query_schemas.add_schema(
+        getattr(wrapper, 'request_query_schemas').add_schema(
             request_query_schema, min_version, max_version
         )
 
         return wrapper
+
+    if (
+        api_version_request.APIVersionRequest(min_version) >=
+        api_version_request.APIVersionRequest('2.102')
+    ):
+        assert request_query_schema['additionalProperties'] is False
 
     return add_validator
