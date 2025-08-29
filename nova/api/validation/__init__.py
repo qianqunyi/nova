@@ -74,11 +74,58 @@ class Schemas:
 
         self.validate_schemas()
 
+    @classmethod
+    def _validate_schema(cls, schema: ty.Any) -> None:
+        # we should only be given dicts (JSON objects) here
+        assert isinstance(schema, dict)
+
+        # some schemas are empty, hence .get
+        if schema.get('type') != 'object':
+            return
+
+        # if we have oneOf then there are subschemas: fake these to look like
+        # complete schema
+        # NOTE(stephenfin): we may need to extend this for anyOf/allOf one day
+        if 'oneOf' in schema:
+            for sub_schema in schema['oneOf']:
+                cls._validate_schema({'type': 'object', **sub_schema})
+                return
+
+        # if we have an object-type additionalProperties value then this
+        # contains a schema (we use this to allow arbitrary keys and validated
+        # values)
+        if (
+            'additionalProperties' in schema and
+            isinstance(schema['additionalProperties'], dict)
+        ):
+            cls._validate_schema(schema['additionalProperties'])
+            return
+
+        if 'properties' in schema:
+            properties = schema['properties']
+        elif 'patternProperties' in schema:
+            properties = schema['patternProperties']
+        else:
+            raise RuntimeError(
+                f'no properties/patternProperties key in {schema}'
+            )
+
+        # if we have an object with defined properties, then we insist that
+        # 'additionalProperties' be set (though we don't care what value it is
+        # set to)
+        if 'additionalProperties' not in schema:
+            raise RuntimeError(f'no additionalProperties key in {schema}')
+
+        for value in properties.values():
+            cls._validate_schema(value)
+
     def validate_schemas(self) -> None:
         """Ensure there are no overlapping schemas."""
         prev_max_version: api_version_request.APIVersionRequest | None = None
 
         for schema, min_version, max_version in self._schemas:
+            self._validate_schema(schema)
+
             if prev_max_version:
                 # it doesn't make sense to have multiple schemas if one of them
                 # is unversioned (i.e. applies to everything)
