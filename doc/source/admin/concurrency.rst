@@ -34,8 +34,8 @@ eventlet mode. If the variable is not set the above default is applied.
    Since nova 32.0.0 (2025.2 Flamingo) the nova-scheduler, nova-metadata, and
    nova-api can be switched to native threading mode.
 
-   Since nova 33.0.0 (2026.1 Gazpacho) also the nova-conductor can be switched
-   to native threading mode.
+   Since nova 33.0.0 (2026.1 Gazpacho) the nova-conductor and nova-compute
+   can also be switched to native threading mode.
 
    Since nova 33.0.0 (2026.1. Gazpacho) the nova-scheduler, nova-metadata, and
    nova-api using native threading mode by default but still can be switched
