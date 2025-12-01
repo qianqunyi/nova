@@ -2896,6 +2896,7 @@ class LibvirtConfigGuestTest(LibvirtConfigBaseTest):
         obj.os_mach_type = "pc-q35-5.1"
         obj.os_loader_secure = secure
         obj.os_loader_stateless = stateless
+
         return obj.to_xml()
 
     def test_config_uefi_autoconfigure(self):
@@ -2910,6 +2911,9 @@ class LibvirtConfigGuestTest(LibvirtConfigBaseTest):
               <memory>104857600</memory>
               <vcpu>1</vcpu>
               <os firmware="efi">
+                <firmware>
+                  <feature enabled='no' name='secure-boot'/>
+                </firmware>
                 <type machine="pc-q35-5.1">hvm</type>
                 <loader secure="no"/>
               </os>
@@ -2928,6 +2932,9 @@ class LibvirtConfigGuestTest(LibvirtConfigBaseTest):
               <memory>104857600</memory>
               <vcpu>1</vcpu>
               <os firmware="efi">
+                <firmware>
+                  <feature enabled='yes' name='secure-boot'/>
+                </firmware>
                 <type machine="pc-q35-5.1">hvm</type>
                 <loader secure="yes"/>
               </os>
@@ -2946,6 +2953,9 @@ class LibvirtConfigGuestTest(LibvirtConfigBaseTest):
               <memory>104857600</memory>
               <vcpu>1</vcpu>
               <os firmware="efi">
+                <firmware>
+                  <feature enabled='no' name='secure-boot'/>
+                </firmware>
                 <type machine="pc-q35-5.1">hvm</type>
                 <loader stateless="yes" secure="no"/>
               </os>
