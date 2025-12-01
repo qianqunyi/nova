@@ -4141,6 +4141,9 @@ class LibvirtDriver(driver.ComputeDriver):
         # need to remember the existing mdevs for reusing them.
         mdevs = self._get_all_assigned_mediated_devices(instance)
         mdevs = list(mdevs.keys())
+
+        old_guest = self._get_existing_guest_config(instance)
+
         # NOTE(mdbooth): In addition to performing a hard reboot of the domain,
         # the hard reboot operation is relied upon by operators to be an
         # automated attempt to fix as many things as possible about a
@@ -4186,7 +4189,8 @@ class LibvirtDriver(driver.ComputeDriver):
                                   instance.image_meta,
                                   block_device_info=block_device_info,
                                   mdevs=mdevs, accel_info=accel_info,
-                                  share_info=share_info)
+                                  share_info=share_info,
+                                  old_guest=old_guest)
 
         # NOTE(mdbooth): context.auth_token will not be set when we call
         #                _hard_reboot from resume_state_on_host_boot()
@@ -4650,6 +4654,9 @@ class LibvirtDriver(driver.ComputeDriver):
         # remember the existing mdevs for reusing them.
         mdevs = self._get_all_assigned_mediated_devices(instance)
         mdevs = list(mdevs.keys())
+
+        old_guest = self._get_existing_guest_config(instance)
+
         self._create_image(context, instance, disk_info['mapping'],
                            injection_info=injection_info, suffix='.rescue',
                            disk_images=rescue_images)
@@ -4659,7 +4666,7 @@ class LibvirtDriver(driver.ComputeDriver):
                                   image_meta, rescue=rescue_images,
                                   mdevs=mdevs,
                                   block_device_info=block_device_info,
-                                  share_info=share_info)
+                                  share_info=share_info, old_guest=old_guest)
         self._destroy(instance)
         self._create_guest(
             context, xml, instance, post_xml_callback=gen_confdrive,
@@ -7111,12 +7118,55 @@ class LibvirtDriver(driver.ComputeDriver):
 
         return supported_events
 
+    def _copy_guest_firmware_elements(
+        self,
+        old_guest: vconfig.LibvirtConfigGuest,
+        guest: vconfig.LibvirtConfigGuest,
+    ) -> None:
+        loader = old_guest.os_loader
+        nvram_template = old_guest.os_nvram_template
+
+        if guest.os_loader_secure != old_guest.os_loader_secure:
+            LOG.warning('Secure boot support was changed '
+                        'after this instance had been created. '
+                        'Re-selecting the firmware files.')
+            # TODO(tkajinam): VIR_DOMAIN_START_RESET_NVRAM should
+            # be added to guest.start if the hard_reboot method is modified
+            # so that it keeps NVRAM file.
+        elif loader and not os.path.exists(loader):
+            # NOTE(tkajinam): Loader does not exist in this host
+            LOG.debug('The previous loader file %s does not '
+                      'exist. Force re-selection of firmware.',
+                      loader)
+        elif nvram_template and not os.path.exists(nvram_template):
+            LOG.debug('The previous nvram template file %s does '
+                      'not exist. Force re-selection of firmware.',
+                      nvram_template)
+        else:
+            # Disable firmware re-selection
+            guest.os_firmware = None
+
+            guest.os_loader = old_guest.os_loader
+            guest.os_loader_type = old_guest.os_loader_type
+            guest.os_loader_readonly = \
+                old_guest.os_loader_readonly
+            guest.os_nvram = old_guest.os_nvram
+            guest.os_nvram_template = old_guest.os_nvram_template
+
+            # if the feature set says we need SMM then enable it
+            for f in old_guest.features:
+                if f == vconfig.LibvirtConfigGuestFeatureSMM():
+                    guest.features.append(
+                        vconfig.LibvirtConfigGuestFeatureSMM())
+                    break
+
     def _configure_guest_by_virt_type(
         self,
         guest: vconfig.LibvirtConfigGuest,
         instance: 'objects.Instance',
         image_meta: 'objects.ImageMeta',
         flavor: 'objects.Flavor',
+        old_guest: ty.Optional[vconfig.LibvirtConfigGuest] = None,
     ) -> None:
         if CONF.libvirt.virt_type in ("kvm", "qemu"):
             caps = self._host.get_capabilities()
@@ -7182,30 +7232,17 @@ class LibvirtDriver(driver.ComputeDriver):
                 else:
                     guest.os_loader_secure = False
 
-                try:
-                    loader, nvram_template, requires_smm = (
-                    self._host.get_loader(
-                        arch, mach_type,
-                        has_secure_boot=guest.os_loader_secure))
-                except exception.UEFINotSupported as exc:
-                    if guest.os_loader_secure:
-                        # we raise a specific exception if we requested secure
-                        # boot and couldn't get that
-                        raise exception.SecureBootNotSupported() from exc
-                    raise
-
-                guest.os_loader = loader
-                guest.os_loader_type = 'pflash'
-                guest.os_loader_readonly = True
+                guest.os_firmware = 'efi'
                 if hw_firmware_stateless:
                     guest.os_loader_stateless = True
-                else:
-                    guest.os_nvram_template = nvram_template
 
-                # if the feature set says we need SMM then enable it
-                if requires_smm:
-                    guest.features.append(
-                        vconfig.LibvirtConfigGuestFeatureSMM())
+                if old_guest:
+                    LOG.debug('The domain already exists. Loading '
+                              'the firmware files previously selected.')
+                    self._copy_guest_firmware_elements(old_guest, guest)
+                else:
+                    LOG.debug('The domain does not exist. Firmware files '
+                              'will be selected by libvirt.')
 
             # NOTE(lyarwood): If the machine type isn't recorded in the stashed
             # image metadata then record it through the system metadata table.
@@ -7537,7 +7574,7 @@ class LibvirtDriver(driver.ComputeDriver):
     def _get_guest_config(self, instance, network_info, image_meta,
                           disk_info, rescue=None, block_device_info=None,
                           context=None, mdevs=None, accel_info=None,
-                          share_info=None):
+                          share_info=None, old_guest=None):
         """Get config data for parameters.
 
         :param rescue: optional dictionary that should contain the key
@@ -7606,7 +7643,8 @@ class LibvirtDriver(driver.ComputeDriver):
 
         me_config = self._get_mem_encryption_config(flavor, image_meta)
 
-        self._configure_guest_by_virt_type(guest, instance, image_meta, flavor)
+        self._configure_guest_by_virt_type(
+            guest, instance, image_meta, flavor, old_guest)
         if CONF.libvirt.virt_type != 'lxc':
             self._conf_non_lxc(
                 guest, root_device_name, rescue, instance, inst_path,
@@ -8098,11 +8136,26 @@ class LibvirtDriver(driver.ComputeDriver):
         ioapic = vconfig.LibvirtConfigGuestFeatureIOAPIC()
         guest.add_feature(ioapic)
 
+    def _get_existing_guest_config(
+        self,
+        instance: 'objects.Instance',
+    ) -> ty.Optional[vconfig.LibvirtConfigGuest]:
+        guest_config = None
+        try:
+            guest = self._host.get_guest(instance)
+            xml = guest.get_xml_desc()
+            xml_doc = etree.fromstring(xml)
+            guest_config = vconfig.LibvirtConfigGuest()
+            guest_config.parse_dom(xml_doc)
+        except exception.InstanceNotFound:
+            pass
+        return guest_config
+
     def _get_guest_xml(self, context, instance, network_info, disk_info,
                        image_meta, rescue=None,
                        block_device_info=None,
                        mdevs=None, accel_info=None,
-                       share_info=None):
+                       share_info=None, old_guest=None):
         # NOTE(danms): Stringifying a NetworkInfo will take a lock. Do
         # this ahead of time so that we don't acquire it while also
         # holding the logging lock.
@@ -8122,7 +8175,8 @@ class LibvirtDriver(driver.ComputeDriver):
         LOG.debug(strutils.mask_password(msg), instance=instance)
         conf = self._get_guest_config(instance, network_info, image_meta,
                                       disk_info, rescue, block_device_info,
-                                      context, mdevs, accel_info, share_info)
+                                      context, mdevs, accel_info, share_info,
+                                      old_guest)
         xml = conf.to_xml()
 
         LOG.debug('End _get_guest_xml xml=%(xml)s',
@@ -12931,10 +12985,12 @@ class LibvirtDriver(driver.ComputeDriver):
         # the new XML
         mdevs = list(self._get_all_assigned_mediated_devices(instance))
 
+        old_guest = self._get_existing_guest_config(instance)
+
         xml = self._get_guest_xml(context, instance, network_info, disk_info,
                                   instance.image_meta,
                                   block_device_info=block_device_info,
-                                  mdevs=mdevs)
+                                  mdevs=mdevs, old_guest=old_guest)
         self._create_guest_with_network(
             context, xml, instance, network_info, block_device_info,
             power_on=power_on)

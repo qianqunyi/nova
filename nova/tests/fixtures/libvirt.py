@@ -17,7 +17,6 @@ import os
 import sys
 import textwrap
 import time
-from unittest import mock
 
 import fixtures
 from lxml import etree
@@ -1189,7 +1188,16 @@ class Domain(object):
 
         os_loader = tree.find('./os/loader')
         if os_loader is not None:
+            os['loader'] = os_loader.text
+            os['loader_type'] = os_loader.get('type')
+            os['loader_readonly'] = os_loader.get('readonly')
             os['loader_stateless'] = os_loader.get('stateless')
+            os['loader_secure'] = os_loader.get('secure')
+
+        os_nvram = tree.find('./os/nvram')
+        if os_nvram is not None:
+            os['nvram'] = os_nvram.text
+            os['nvram_template'] = os_nvram.get('template')
 
         os_kernel = tree.find('./os/kernel')
         if os_kernel is not None:
@@ -1554,10 +1562,35 @@ class Domain(object):
         pass
 
     def XMLDesc(self, flags):
-        loader = '<loader/>'
+        loader_elems = ['']
+        if self._def['os'].get('loader_type'):
+            loader_elems.append(
+                "type='%s'" % self._def['os'].get('loader_type'))
+        if self._def['os'].get('loader_readonly'):
+            loader_elems.append(
+                "readonly='%s'" % self._def['os'].get('loader_readonly'))
+        if self._def['os'].get('loader_secure'):
+            loader_elems.append(
+                "secure='%s'" % self._def['os'].get('loader_secure'))
         if self._def['os'].get('loader_stateless'):
-            loader = ('<loader stateless="%s"/>' %
-                self._def['os'].get('loader_stateless'))
+            loader_elems.append(
+                "stateless='%s'" % self._def['os'].get('loader_stateless'))
+
+        loader = ''
+        if self._def['os'].get('loader'):
+            loader = '<loader%s>%s</loader>' % (
+                ' '.join(loader_elems), self._def['os'].get('loader'))
+        elif loader_elems:
+            loader = '<loader%s/>' % ' '.join(loader_elems)
+
+        nvram = ''
+        nvram_template = self._def['os'].get('nvram_template')
+        if nvram_template:
+            if not self._def['os'].get('nvram'):
+                nvram = "<nvram template='%s'/>" % nvram_template
+            else:
+                nvram = "<nvram template='%s'>%s</nvram>" % (
+                    nvram_template, self._def['os'].get('nvram'))
 
         disks = ''
         for disk in self._def['devices']['disks']:
@@ -1749,6 +1782,7 @@ class Domain(object):
   <os>
     <type arch='%(arch)s' machine='pc-0.12'>hvm</type>
     %(loader)s
+    %(nvram)s
     <boot dev='hd'/>
   </os>
   <features>
@@ -1800,6 +1834,7 @@ class Domain(object):
                 'iothreads': iothreads,
                 'arch': self._def['os']['arch'],
                 'loader': loader,
+                'nvram': nvram,
                 'disks': disks,
                 'filesystems': filesystems,
                 'nics': nics,
@@ -2709,91 +2744,6 @@ class LibvirtFixture(fixtures.Fixture):
             return real_exists(path)
 
         self.useFixture(fixtures.MonkeyPatch('os.path.exists', fake_exists))
-
-        # ...and on all machine types
-        fake_loaders = [
-            {
-                'description': 'UEFI firmware for x86_64',
-                'interface-types': ['uefi'],
-                'mapping': {
-                    'device': 'flash',
-                    'executable': {
-                        'filename': '/usr/share/OVMF/OVMF_CODE.fd',
-                        'format': 'raw',
-                    },
-                    'nvram-template': {
-                        'filename': '/usr/share/OVMF/OVMF_VARS.fd',
-                        'format': 'raw',
-                    },
-                },
-                'targets': [
-                    {
-                        'architecture': 'x86_64',
-                        'machines': ['pc-i440fx-*', 'pc-q35-*'],
-                    },
-                ],
-                'features': ['acpi-s3', 'amd-sev', 'verbose-dynamic'],
-                'tags': [],
-            },
-            {
-                'description': 'UEFI firmware for x86_64, with SB+SMM',
-                'interface-types': ['uefi'],
-                'mapping': {
-                    'device': 'flash',
-                    'executable': {
-                        'filename': '/usr/share/OVMF/OVMF_CODE.secboot.fd',
-                        'format': 'raw',
-                    },
-                    'nvram-template': {
-                        'filename': '/usr/share/OVMF/OVMF_VARS.secboot.fd',
-                        'format': 'raw',
-                    },
-                },
-                'targets': [
-                    {
-                        'architecture': 'x86_64',
-                        'machines': ['pc-q35-*'],
-                    },
-                ],
-                'features': [
-                    'acpi-s3',
-                    'amd-sev',
-                    'enrolled-keys',
-                    'requires-smm',
-                    'secure-boot',
-                    'verbose-dynamic',
-                ],
-                'tags': [],
-            },
-            {
-                'description': 'UEFI firmware for aarch64',
-                'interface-types': ['uefi'],
-                'mapping': {
-                    'device': 'flash',
-                    'executable': {
-                        'filename': '/usr/share/AAVMF/AAVMF_CODE.fd',
-                        'format': 'raw',
-                    },
-                    'nvram-template': {
-                        'filename': '/usr/share/AAVMF/AAVMF_VARS.fd',
-                        'format': 'raw',
-                    }
-                },
-                'targets': [
-                    {
-                        'architecture': 'aarch64',
-                        'machines': ['virt-*'],
-                    }
-                ],
-                'features': ['verbose-static'],
-                "tags": [],
-            },
-        ]
-        self.useFixture(
-            fixtures.MockPatch(
-                'nova.virt.libvirt.host.Host.loaders',
-                new_callable=mock.PropertyMock,
-                return_value=fake_loaders))
 
         disable_event_thread(self)
 
