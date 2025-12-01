@@ -2863,9 +2863,10 @@ class LibvirtConfigGuestTest(LibvirtConfigBaseTest):
         obj.os_mach_type = "pc-q35-5.1"
         obj.os_loader = '/tmp/OVMF_CODE.secboot.fd'
         obj.os_loader_type = 'pflash'
-        obj.os_nvram = '/foo/bar/instance-00000012_VARS.fd'
+        obj.os_loader_readonly = True
         obj.os_loader_secure = True
         obj.os_loader_stateless = True
+        obj.os_nvram = '/foo/bar/instance-00000012_VARS.fd'
         xml = obj.to_xml()
 
         self.assertxmlequal(
@@ -2878,7 +2879,7 @@ class LibvirtConfigGuestTest(LibvirtConfigBaseTest):
               <os>
                 <type machine="pc-q35-5.1">hvm</type>
                 <loader stateless='yes' secure='yes' readonly='yes' type='pflash'>/tmp/OVMF_CODE.secboot.fd</loader>
-                 <nvram>/foo/bar/instance-00000012_VARS.fd</nvram>
+                <nvram>/foo/bar/instance-00000012_VARS.fd</nvram>
               </os>
             </domain>""",  # noqa: E501
             xml,
@@ -3135,6 +3136,11 @@ class LibvirtConfigGuestTest(LibvirtConfigBaseTest):
         self.assertEqual('/tmp/vmlinuz', obj.os_kernel)
         self.assertEqual('/usr/lib/xen/boot/hvmloader', obj.os_loader)
         self.assertIsNone(obj.os_loader_type)
+        self.assertIsNone(obj.os_loader_readonly)
+        self.assertIsNone(obj.os_loader_secure)
+        self.assertIsNone(obj.os_loader_stateless)
+        self.assertIsNone(obj.os_nvram)
+        self.assertIsNone(obj.os_nvram_template)
         self.assertEqual('/tmp/ramdisk', obj.os_initrd)
         self.assertEqual('console=xvc0', obj.os_cmdline)
         self.assertEqual('root=xvda', obj.os_root)
@@ -3149,9 +3155,11 @@ class LibvirtConfigGuestTest(LibvirtConfigBaseTest):
             <os>
               <type>hvm</type>
               <loader readonly='yes' type='pflash'>/tmp/OVMF_CODE.fd</loader>
+              <nvram template='/tmp/OVMF_VARS.fd'>/var/lib/libvirt/qemu/nvram/instance.fd</nvram>
             </os>
           </domain>
-        """
+        """  # noqa: E501
+
         obj = config.LibvirtConfigGuest()
         obj.parse_str(xmldoc)
 
@@ -3161,6 +3169,76 @@ class LibvirtConfigGuestTest(LibvirtConfigBaseTest):
         self.assertIsNone(obj.os_kernel)
         self.assertEqual('/tmp/OVMF_CODE.fd', obj.os_loader)
         self.assertEqual('pflash', obj.os_loader_type)
+        self.assertTrue(obj.os_loader_readonly)
+        self.assertIsNone(obj.os_loader_secure)
+        self.assertIsNone(obj.os_loader_stateless)
+        self.assertEqual('/var/lib/libvirt/qemu/nvram/instance.fd',
+                         obj.os_nvram)
+        self.assertEqual('/tmp/OVMF_VARS.fd', obj.os_nvram_template)
+        self.assertIsNone(obj.os_initrd)
+        self.assertIsNone(obj.os_cmdline)
+        self.assertIsNone(obj.os_root)
+        self.assertIsNone(obj.os_init_path)
+        self.assertEqual([], obj.os_boot_dev)
+        self.assertFalse(obj.os_bootmenu)
+        self.assertIsNone(obj.os_smbios)
+
+        xmldoc = """
+          <domain>
+            <os>
+              <type>hvm</type>
+              <loader readonly='yes' secure='yes' type='pflash'>/tmp/OVMF_CODE.secboot.fd</loader>
+              <nvram template='/tmp/OVMF_VARS.secboot.fd'>/var/lib/libvirt/qemu/nvram/instance.fd</nvram>
+            </os>
+          </domain>
+        """  # noqa: E501
+
+        obj = config.LibvirtConfigGuest()
+        obj.parse_str(xmldoc)
+
+        self.assertIsNone(obj.virt_type)
+        self.assertEqual('hvm', obj.os_type)
+        self.assertIsNone(obj.os_mach_type)
+        self.assertIsNone(obj.os_kernel)
+        self.assertEqual('/tmp/OVMF_CODE.secboot.fd', obj.os_loader)
+        self.assertEqual('pflash', obj.os_loader_type)
+        self.assertTrue(obj.os_loader_readonly)
+        self.assertTrue(obj.os_loader_secure)
+        self.assertIsNone(obj.os_loader_stateless)
+        self.assertEqual('/var/lib/libvirt/qemu/nvram/instance.fd',
+                         obj.os_nvram)
+        self.assertEqual('/tmp/OVMF_VARS.secboot.fd', obj.os_nvram_template)
+        self.assertIsNone(obj.os_initrd)
+        self.assertIsNone(obj.os_cmdline)
+        self.assertIsNone(obj.os_root)
+        self.assertIsNone(obj.os_init_path)
+        self.assertEqual([], obj.os_boot_dev)
+        self.assertFalse(obj.os_bootmenu)
+        self.assertIsNone(obj.os_smbios)
+
+        xmldoc = """
+          <domain>
+            <os>
+              <type>hvm</type>
+              <loader readonly='yes' stateless='yes' type='pflash'>/tmp/OVMF_CODE.fd</loader>
+            </os>
+          </domain>
+        """  # noqa: E501
+
+        obj = config.LibvirtConfigGuest()
+        obj.parse_str(xmldoc)
+
+        self.assertIsNone(obj.virt_type)
+        self.assertEqual('hvm', obj.os_type)
+        self.assertIsNone(obj.os_mach_type)
+        self.assertIsNone(obj.os_kernel)
+        self.assertEqual('/tmp/OVMF_CODE.fd', obj.os_loader)
+        self.assertEqual('pflash', obj.os_loader_type)
+        self.assertTrue(obj.os_loader_readonly)
+        self.assertIsNone(obj.os_loader_secure)
+        self.assertTrue(obj.os_loader_stateless)
+        self.assertIsNone(obj.os_nvram)
+        self.assertIsNone(obj.os_nvram_template)
         self.assertIsNone(obj.os_initrd)
         self.assertIsNone(obj.os_cmdline)
         self.assertIsNone(obj.os_root)

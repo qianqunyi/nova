@@ -3125,6 +3125,7 @@ class LibvirtConfigGuest(LibvirtConfigObject):
         self.os_loader = None
         self.os_firmware = None
         self.os_loader_type = None
+        self.os_loader_readonly = None
         self.os_loader_secure = None
         self.os_loader_stateless = None
         self.os_nvram = None
@@ -3200,13 +3201,16 @@ class LibvirtConfigGuest(LibvirtConfigObject):
         if (
             self.os_loader is not None or
             self.os_loader_type is not None or
+            self.os_loader_readonly is not None or
             self.os_loader_secure is not None or
             self.os_loader_stateless is not None
         ):
             loader = self._text_node("loader", self.os_loader)
             if self.os_loader_type is not None:
                 loader.set("type", self.os_loader_type)
-                loader.set("readonly", "yes")
+            if self.os_loader_readonly is not None:
+                loader.set(
+                    "readonly", self.get_yes_no_str(self.os_loader_readonly))
             if self.os_loader_secure is not None:
                 loader.set(
                     "secure", self.get_yes_no_str(self.os_loader_secure))
@@ -3346,8 +3350,16 @@ class LibvirtConfigGuest(LibvirtConfigObject):
                 self.os_kernel = c.text
             elif c.tag == 'loader':
                 self.os_loader = c.text
-                if c.get('type') == 'pflash':
-                    self.os_loader_type = 'pflash'
+                self.os_loader_type = c.get('type')
+                if c.get('readonly'):
+                    self.os_loader_readonly = (c.get('readonly') == 'yes')
+                if c.get('secure'):
+                    self.os_loader_secure = (c.get('secure') == 'yes')
+                if c.get('stateless'):
+                    self.os_loader_stateless = (c.get('stateless') == 'yes')
+            elif c.tag == 'nvram':
+                self.os_nvram = c.text
+                self.os_nvram_template = c.get('template')
             elif c.tag == 'initrd':
                 self.os_initrd = c.text
             elif c.tag == 'cmdline':
