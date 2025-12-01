@@ -3135,6 +3135,7 @@ class LibvirtConfigGuestTest(LibvirtConfigBaseTest):
         self.assertEqual('fake_machine_type', obj.os_mach_type)
         self.assertEqual('/tmp/vmlinuz', obj.os_kernel)
         self.assertEqual('/usr/lib/xen/boot/hvmloader', obj.os_loader)
+        self.assertNotIn(config.LibvirtConfigGuestFeatureSMM(), obj.features)
         self.assertIsNone(obj.os_loader_type)
         self.assertIsNone(obj.os_loader_readonly)
         self.assertIsNone(obj.os_loader_secure)
@@ -3157,6 +3158,10 @@ class LibvirtConfigGuestTest(LibvirtConfigBaseTest):
               <loader readonly='yes' type='pflash'>/tmp/OVMF_CODE.fd</loader>
               <nvram template='/tmp/OVMF_VARS.fd'>/var/lib/libvirt/qemu/nvram/instance.fd</nvram>
             </os>
+            <features>
+              <acpi/>
+              <smm state='on'/>
+            </features>
           </domain>
         """  # noqa: E501
 
@@ -3167,6 +3172,7 @@ class LibvirtConfigGuestTest(LibvirtConfigBaseTest):
         self.assertEqual('hvm', obj.os_type)
         self.assertIsNone(obj.os_mach_type)
         self.assertIsNone(obj.os_kernel)
+        self.assertIn(config.LibvirtConfigGuestFeatureSMM(), obj.features)
         self.assertEqual('/tmp/OVMF_CODE.fd', obj.os_loader)
         self.assertEqual('pflash', obj.os_loader_type)
         self.assertTrue(obj.os_loader_readonly)
@@ -3190,6 +3196,9 @@ class LibvirtConfigGuestTest(LibvirtConfigBaseTest):
               <loader readonly='yes' secure='yes' type='pflash'>/tmp/OVMF_CODE.secboot.fd</loader>
               <nvram template='/tmp/OVMF_VARS.secboot.fd'>/var/lib/libvirt/qemu/nvram/instance.fd</nvram>
             </os>
+            <features>
+              <smm/>
+            </features>
           </domain>
         """  # noqa: E501
 
@@ -3200,6 +3209,7 @@ class LibvirtConfigGuestTest(LibvirtConfigBaseTest):
         self.assertEqual('hvm', obj.os_type)
         self.assertIsNone(obj.os_mach_type)
         self.assertIsNone(obj.os_kernel)
+        self.assertIn(config.LibvirtConfigGuestFeatureSMM(), obj.features)
         self.assertEqual('/tmp/OVMF_CODE.secboot.fd', obj.os_loader)
         self.assertEqual('pflash', obj.os_loader_type)
         self.assertTrue(obj.os_loader_readonly)
@@ -3222,6 +3232,9 @@ class LibvirtConfigGuestTest(LibvirtConfigBaseTest):
               <type>hvm</type>
               <loader readonly='yes' stateless='yes' type='pflash'>/tmp/OVMF_CODE.fd</loader>
             </os>
+            <features>
+              <acpi/>
+            </features>
           </domain>
         """  # noqa: E501
 
@@ -3232,6 +3245,7 @@ class LibvirtConfigGuestTest(LibvirtConfigBaseTest):
         self.assertEqual('hvm', obj.os_type)
         self.assertIsNone(obj.os_mach_type)
         self.assertIsNone(obj.os_kernel)
+        self.assertNotIn(config.LibvirtConfigGuestFeatureSMM(), obj.features)
         self.assertEqual('/tmp/OVMF_CODE.fd', obj.os_loader)
         self.assertEqual('pflash', obj.os_loader_type)
         self.assertTrue(obj.os_loader_readonly)
