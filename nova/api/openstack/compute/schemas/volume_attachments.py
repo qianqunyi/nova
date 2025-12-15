@@ -229,6 +229,8 @@ create_response_v279['properties']['volumeAttachment'][
     'required'
 ].append('device')
 
+create_response_v2101 = {'type': 'null'}
+
 update_response = {'type': 'null'}
 
 delete_response = {'type': 'null'}
