@@ -1489,6 +1489,11 @@ class LibvirtDriver(driver.ComputeDriver):
         # conversion which will return value of type unicode.
         return uri and str(uri)
 
+    def cleanup_host(self, host):
+        """Clean up anything that is necessary for the driver gracefully stop.
+        """
+        self._host.cleanup()
+
     def instance_exists(self, instance):
         """Efficient override of base instance_exists method."""
         try:
