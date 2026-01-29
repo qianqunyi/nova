@@ -616,7 +616,7 @@ def spawn_on(
             "The %s pool does not have free threads so the task %s will be "
             "queued. If this happens repeatedly then the size of the pool is "
             "too small for the load or there are stuck threads filling the "
-            "pool.", executor.name, func)
+            "pool.", getattr(executor, "name", "unknown"), func)
 
     _context = common_context.get_current()
     profiler_info = _serialize_profile_info()

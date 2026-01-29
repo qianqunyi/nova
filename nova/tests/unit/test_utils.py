@@ -1559,6 +1559,41 @@ class SpawnOnTestCase(test.NoDBTestCase):
             'nova.tests.unit.test_utils.SpawnOnTestCase.'
             'test_spawn_on_warns_on_full_executor.cell_worker', task)
 
+    @mock.patch.object(
+        utils, 'concurrency_mode_threading', new=mock.Mock(return_value=True))
+    @mock.patch.object(utils.LOG, 'warning')
+    def test_spawn_on_warns_on_full_executor_noname(self, mock_warning):
+        # Ensure we have executor for a single task only at a time
+        executor = utils.create_executor(max_workers=1)
+
+        work = threading.Event()
+        started = threading.Event()
+
+        # let the blocked tasks finish after the test case so that the leaked
+        # thread check is not triggered during cleanup
+        self.addCleanup(work.set)
+
+        def task():
+            started.set()
+            work.wait()
+
+        # Start two tasks that will wait, the first will execute the second
+        # will wait in the queue
+        utils.spawn_on(executor, task)
+        utils.spawn_on(executor, task)
+        # wait for the first task to consume the single executor thread
+        started.wait()
+        # start one more task to trigger the fullness check.
+        utils.spawn_on(executor, task)
+
+        # We expect that spawn_on will warn due to the second task being is
+        # waiting in the queue, and no idle worker thread exists.
+        mock_warning.assert_called_once_with(
+            'The %s pool does not have free threads so the task %s will be '
+            'queued. If this happens repeatedly then the size of the pool is '
+            'too small for the load or there are stuck threads filling the '
+            'pool.', 'unknown', task)
+
 
 class ExecutorStatsTestCase(test.NoDBTestCase):
 
