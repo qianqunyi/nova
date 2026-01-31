@@ -852,6 +852,9 @@
             irrelevant-files: *nova-base-irrelevant-files
             voting: false
         - nova-tox-py312-threading
+        - openstack-tox-cover:
+            # Allow more time for unit and functional tests to run.
+            timeout: 4200
     gate:
       jobs:
         - nova-live-migration
