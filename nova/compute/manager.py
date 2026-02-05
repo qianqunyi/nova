@@ -672,37 +672,12 @@ class ComputeManager(manager.Manager):
         self._syncs_in_progress_lock = threading.Lock()
         self.send_instance_updates = (
             CONF.filter_scheduler.track_instance_changes)
-        if CONF.max_concurrent_builds != 0:
-            self._build_semaphore = threading.Semaphore(
-                CONF.max_concurrent_builds)
-        else:
-            self._build_semaphore = compute_utils.UnlimitedSemaphore()
-        if CONF.max_concurrent_snapshots > 0:
-            self._snapshot_semaphore = threading.Semaphore(
-                CONF.max_concurrent_snapshots)
-        else:
-            self._snapshot_semaphore = compute_utils.UnlimitedSemaphore()
-        if CONF.max_concurrent_live_migrations > 0:
-            self._live_migration_executor = nova.utils.create_executor(
-                max_workers=CONF.max_concurrent_live_migrations)
-        else:
-            # setting CONF.max_concurrent_live_migrations to 0 (unlimited)
-            # is deprecated but still supported, so we need to use a sane
-            # default values for each threading mode
-            LOG.warning("Nova compute deprecated the support of unlimited "
-                        "parallel live migration so "
-                        "[DEFAULT]max_concurrent_live_migrations configured "
-                        "with value 0 is deprecated and will not be supported "
-                        "in future releases. Please set an explicit positive"
-                        "value to this config option instead.")
-            if utils.concurrency_mode_threading():
-                self._live_migration_executor = nova.utils.create_executor(
-                    max_workers=5)
-            else:
-                # In eventlet mode we need to keep backward compatibility and
-                # 1000 greenthreads to emulate unlimited.
-                self._live_migration_executor = nova.utils.create_executor(
-                    max_workers=1000)
+        self._build_semaphore = threading.Semaphore(
+                self._get_max_concurrent_builds())
+        self._snapshot_semaphore = threading.Semaphore(
+                self._get_max_concurrent_snapshots())
+        self._live_migration_executor = nova.utils.create_executor(
+            max_workers=self._get_max_concurrent_live_migrations())
 
         # This is a dict, keyed by instance uuid, to a two-item tuple of
         # migration object and Future for the queued live migration.
@@ -721,6 +696,68 @@ class ComputeManager(manager.Manager):
         self.driver = driver.load_compute_driver(self.virtapi, compute_driver)
         self.rt = resource_tracker.ResourceTracker(
             self.host, self.driver, reportclient=self.reportclient)
+
+    def _get_max_concurrent_builds(self):
+        if CONF.max_concurrent_builds > 0:
+            return CONF.max_concurrent_builds
+
+        # setting CONF.max_concurrent_builds to 0 (unlimited)
+        # is deprecated but still supported, so we need to use a sane
+        # default values for each threading mode
+        LOG.warning("Nova compute deprecated the support of unlimited "
+                    "parallel instance builds so "
+                    "[DEFAULT]max_concurrent_builds configured "
+                    "with value 0 is deprecated and will not be supported "
+                    "in future releases. Please set an explicit positive "
+                    "value to this config option instead.")
+        if utils.concurrency_mode_threading():
+            # Fall back to the default of the config
+            return 10
+        else:
+            # In eventlet mode we need to keep backward compatibility, and
+            # we use 1000 to emulate unlimited
+            return 1000
+
+    def _get_max_concurrent_snapshots(self):
+        if CONF.max_concurrent_snapshots > 0:
+            return CONF.max_concurrent_snapshots
+
+        # setting CONF.max_concurrent_snapshots to 0 (unlimited)
+        # is deprecated but still supported, so we need to use a sane
+        # default values for each threading mode
+        LOG.warning("Nova compute deprecated the support of unlimited "
+                    "parallel instance snapshots so "
+                    "[DEFAULT]max_concurrent_snapshots configured "
+                    "with value 0 is deprecated and will not be supported "
+                    "in future releases. Please set an explicit positive "
+                    "value to this config option instead.")
+        if utils.concurrency_mode_threading():
+            # Fall back to the default of the config
+            return 5
+        else:
+            # In eventlet mode we need to keep backward compatibility, and
+            # we use 1000 to emulate unlimited
+            return 1000
+
+    def _get_max_concurrent_live_migrations(self):
+        if CONF.max_concurrent_live_migrations > 0:
+            return CONF.max_concurrent_live_migrations
+
+        # setting CONF.max_concurrent_live_migrations to 0 (unlimited)
+        # is deprecated but still supported, so we need to use a sane
+        # default values for each threading mode
+        LOG.warning("Nova compute deprecated the support of unlimited "
+                    "parallel live migration so "
+                    "[DEFAULT]max_concurrent_live_migrations configured "
+                    "with value 0 is deprecated and will not be supported "
+                    "in future releases. Please set an explicit positive"
+                    "value to this config option instead.")
+        if utils.concurrency_mode_threading():
+            return 5
+        else:
+            # In eventlet mode we need to keep backward compatibility and
+            # 1000 greenthreads to emulate unlimited
+            return 1000
 
     @contextlib.contextmanager
     def syncs_in_progress(self) -> Iterator[set[str]]:

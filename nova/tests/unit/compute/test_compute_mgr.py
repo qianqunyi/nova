@@ -979,9 +979,10 @@ class ComputeManagerUnitTestCase(test.NoDBTestCase,
     def test_max_concurrent_builds_semaphore_unlimited(self):
         self.flags(max_concurrent_builds=0)
         compute = manager.ComputeManager()
-        self.assertEqual(0, compute._build_semaphore.balance)
-        self.assertIsInstance(compute._build_semaphore,
-                              compute_utils.UnlimitedSemaphore)
+        if utils.concurrency_mode_threading():
+            self.assertEqual(10, compute._build_semaphore._value)
+        else:
+            self.assertEqual(1000, compute._build_semaphore._value)
 
     @mock.patch('nova.objects.Instance.save')
     @mock.patch('nova.compute.manager.ComputeManager.'
@@ -1013,9 +1014,10 @@ class ComputeManagerUnitTestCase(test.NoDBTestCase,
     def test_max_concurrent_snapshots_semaphore_unlimited(self):
         self.flags(max_concurrent_snapshots=0)
         compute = manager.ComputeManager()
-        self.assertEqual(0, compute._snapshot_semaphore.balance)
-        self.assertIsInstance(compute._snapshot_semaphore,
-                              compute_utils.UnlimitedSemaphore)
+        if utils.concurrency_mode_threading():
+            self.assertEqual(5, compute._snapshot_semaphore._value)
+        else:
+            self.assertEqual(1000, compute._snapshot_semaphore._value)
 
     def test_nil_out_inst_obj_host_and_node_sets_nil(self):
         instance = fake_instance.fake_instance_obj(self.context,
