@@ -1233,6 +1233,14 @@ class Domain(object):
             definition['iothreads'] = iothreads.text
 
         iothread_pin = tree.find('./cputune/iothreadpin')
+        if iothread_pin is not None and iothread_pin.get('iothread') is None:
+            raise make_libvirtError(
+                libvirtError,
+                "XML error: Missing required attribute 'iothread' "
+                "in element 'iothreadpin'",
+                error_code=VIR_ERR_XML_ERROR,
+                error_domain=VIR_FROM_DOMAIN
+            )
         if iothread_pin is not None:
             definition['iothread_pin'] = iothread_pin.get('cpuset')
 
@@ -2090,27 +2098,6 @@ class Connection(object):
         callback(self, dom, event, detail, opaque)
 
     def defineXML(self, xml):
-        dom = Domain(connection=self, running=False, transient=False, xml=xml)
-        self._vms[dom.name()] = dom
-        self._emit_lifecycle(dom, VIR_DOMAIN_EVENT_DEFINED, 0)
-        return dom
-
-    # TODO(lajoskatona): Move this validation to defineXML once fix for
-    # bug/2140537 is merged.
-    # This method is only used temporarily from
-    # nova/tests/functional/regressions/test_bug_2140537.py
-    def _defineXMLIOThreads(self, xml):
-        xml_doc = etree.fromstring(xml.encode('utf-8'))
-        iothreadpin = xml_doc.find('./cputune/iothreadpin')
-
-        if iothreadpin is not None and iothreadpin.get('iothread') is None:
-            raise make_libvirtError(
-                libvirtError,
-                "XML error: Missing required attribute 'iothread' "
-                "in element 'iothreadpin'",
-                error_code=VIR_ERR_XML_ERROR,
-                error_domain=VIR_FROM_DOMAIN)
-
         dom = Domain(connection=self, running=False, transient=False, xml=xml)
         self._vms[dom.name()] = dom
         self._emit_lifecycle(dom, VIR_DOMAIN_EVENT_DEFINED, 0)

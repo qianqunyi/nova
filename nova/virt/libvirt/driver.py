@@ -6462,6 +6462,9 @@ class LibvirtDriver(driver.ComputeDriver):
 
         return emulatorpin_cpuset
 
+    def _get_guest_iothread(self):
+        return 1
+
     def _get_guest_numa_config(self, instance_numa_topology, flavor,
                                image_meta):
         """Returns the config objects for the guest NUMA specs.
@@ -6532,9 +6535,6 @@ class LibvirtDriver(driver.ComputeDriver):
         guest_cpu_tune.emulatorpin = (
             vconfig.LibvirtConfigGuestCPUTuneEmulatorPin())
         guest_cpu_tune.emulatorpin.cpuset = set([])
-        guest_cpu_tune.iothreadpin = (
-            vconfig.LibvirtConfigGuestCPUTuneIOThreadPin())
-        guest_cpu_tune.iothreadpin.cpuset = set([])
 
         # Init NUMATune configuration
         guest_numa_tune = vconfig.LibvirtConfigGuestNUMATune()
@@ -6578,7 +6578,14 @@ class LibvirtDriver(driver.ComputeDriver):
                 # both emulator and iothreads are pinned to cores other
                 # than the instance's cores to support realtime cpus.
                 guest_cpu_tune.emulatorpin.cpuset.update(emu_pin_cpuset)
-                guest_cpu_tune.iothreadpin.cpuset.update(emu_pin_cpuset)
+
+        # Create iothreadpin entries after processing all cells
+        # Use the same cpuset as emulatorpin
+        for iothread_id in range(self._get_guest_iothread()):
+            iothread_pin = vconfig.LibvirtConfigGuestCPUTuneIOThreadPin()
+            iothread_pin.iothread = iothread_id + 1
+            iothread_pin.cpuset = guest_cpu_tune.emulatorpin.cpuset
+            guest_cpu_tune.iothreadpin.append(iothread_pin)
 
         # TODO(berrange) When the guest has >1 NUMA node, it will
         # span multiple host NUMA nodes. By pinning emulator threads
@@ -7609,8 +7616,9 @@ class LibvirtDriver(driver.ComputeDriver):
         self._set_features(guest, instance.os_type, image_meta, flavor)
         self._set_clock(guest, instance.os_type, image_meta)
 
-        # Set IOThreads to 1 for everybody
-        guest.iothreads = 1
+        # Set IOThreads to the same value for everybody,
+        # returned by _get_guest_iothread
+        guest.iothreads = self._get_guest_iothread()
 
         storage_configs = self._get_guest_storage_config(context,
                 instance, image_meta, disk_info, rescue, block_device_info,
