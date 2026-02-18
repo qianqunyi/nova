@@ -21,6 +21,7 @@ import threading
 import time
 from unittest import mock
 
+import fasteners
 import fixtures
 from keystoneauth1 import adapter as ks_adapter
 from keystoneauth1.identity import base as ks_identity
@@ -1997,22 +1998,81 @@ class TestFairLockGuard(test.NoDBTestCase):
             self.assertTrue(test_locks[0].is_writer())
             self.assertTrue(test_locks[1].is_writer())
 
-        # attempting to nest the same context manager instance
-        # should raise a TypeError.
+        # Same instance nesting now works - locks are already held,
+        # so nested entry just increments depth counter.
         with lock_guard:
             self.assertTrue(lock_guard.is_locked())
             self.assertTrue(test_locks[0].is_writer())
             self.assertTrue(test_locks[1].is_writer())
-            with self.assertRaisesRegex(
-                TypeError,
-                "Cannot enter FairLockGuard while it is already active."):
-                with lock_guard:
-                    pass
-            # after the TypeError, the outer context should still
-            # be active.
+            with lock_guard:
+                # Still locked in nested context
+                self.assertTrue(lock_guard.is_locked())
+                self.assertTrue(test_locks[0].is_writer())
+                self.assertTrue(test_locks[1].is_writer())
+            # Still locked after inner exit
             self.assertTrue(lock_guard.is_locked())
             self.assertTrue(test_locks[0].is_writer())
             self.assertTrue(test_locks[1].is_writer())
+        # Released after outer exit
+        self.assertFalse(lock_guard.is_locked())
+        self.assertFalse(test_locks[0].is_writer())
+        self.assertFalse(test_locks[1].is_writer())
+
+    @mock.patch.object(utils, 'NOVA_FAIR_LOCKS')
+    def test_deep_nesting(self, mock_fair_locks):
+        """Test that nesting works correctly at 3+ levels deep."""
+        test_lock = fasteners.ReaderWriterLock()
+        mock_fair_locks.get.return_value = test_lock
+        lock_guard = utils.FairLockGuard(['deep-test'])
+
+        with lock_guard:
+            self.assertTrue(lock_guard.is_locked())
+            with lock_guard:
+                self.assertTrue(lock_guard.is_locked())
+                with lock_guard:
+                    # Third level of nesting
+                    self.assertTrue(lock_guard.is_locked())
+                    self.assertTrue(test_lock.is_writer())
+                # Still locked after level 3 exit
+                self.assertTrue(lock_guard.is_locked())
+            # Still locked after level 2 exit
+            self.assertTrue(lock_guard.is_locked())
+        # Released after outermost exit
+        self.assertFalse(lock_guard.is_locked())
+        self.assertFalse(test_lock.is_writer())
+
+    @mock.patch.object(utils, 'NOVA_FAIR_LOCKS')
+    def test_nested_exception_outer_still_holds_locks(self, mock_fair_locks):
+        """Test that outer context retains locks when inner context raises."""
+        test_lock = fasteners.ReaderWriterLock()
+        mock_fair_locks.get.return_value = test_lock
+        lock_guard = utils.FairLockGuard(['exception-test'])
+
+        with lock_guard:
+            self.assertTrue(lock_guard.is_locked())
+            try:
+                with lock_guard:
+                    self.assertTrue(lock_guard.is_locked())
+                    raise ValueError("Test exception")
+            except ValueError:
+                pass
+            # Outer context still holds locks after inner raised
+            self.assertTrue(lock_guard.is_locked())
+            self.assertTrue(test_lock.is_writer())
+        # Released after outer exit
+        self.assertFalse(lock_guard.is_locked())
+        self.assertFalse(test_lock.is_writer())
+
+    @mock.patch.object(utils, 'NOVA_FAIR_LOCKS')
+    def test_empty_lock_list(self, mock_fair_locks):
+        """Test FairLockGuard with empty lock list."""
+        lock_guard = utils.FairLockGuard([])
+
+        with lock_guard:
+            # No locks to acquire, but should still work
+            self.assertFalse(lock_guard.is_locked())
+
+        mock_fair_locks.get.assert_not_called()
 
 
 class StaticallyDelayingCancellableTaskExecutorWrapperTest(test.NoDBTestCase):
