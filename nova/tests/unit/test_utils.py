@@ -2030,6 +2030,7 @@ class StaticallyDelayingCancellableTaskExecutorWrapperTest(test.NoDBTestCase):
 
         executor = utils.StaticallyDelayingCancellableTaskExecutorWrapper(
             0.01, utils._get_default_executor())
+        self.addCleanup(executor.shutdown, wait=True)
 
         future1 = executor.submit_with_delay(task1)
         self.assertEqual(42, future1.result())
@@ -2056,6 +2057,7 @@ class StaticallyDelayingCancellableTaskExecutorWrapperTest(test.NoDBTestCase):
         # the wrapper while we submit the second task
         executor = utils.StaticallyDelayingCancellableTaskExecutorWrapper(
             2, utils._get_default_executor())
+        self.addCleanup(executor.shutdown, wait=True)
 
         future1 = executor.submit_with_delay(task1)
         task1_start = time.monotonic()
@@ -2147,6 +2149,7 @@ class StaticallyDelayingCancellableTaskExecutorWrapperTest(test.NoDBTestCase):
         # the wrapper when we cancel it
         executor = utils.StaticallyDelayingCancellableTaskExecutorWrapper(
             2, utils._get_default_executor())
+        self.addCleanup(executor.shutdown, wait=True)
 
         future1 = executor.submit_with_delay(task1)
         # wait a bit to let the task being picked up
@@ -2220,6 +2223,7 @@ class StaticallyDelayingCancellableTaskExecutorWrapperTest(test.NoDBTestCase):
     def test_instantaneous_shutdown(self):
         executor = utils.StaticallyDelayingCancellableTaskExecutorWrapper(
             0.1, utils._get_default_executor())
+        self.addCleanup(executor.shutdown, wait=True)
 
         executor.shutdown(wait=False)
         self.assertTrue(executor._shutdown)

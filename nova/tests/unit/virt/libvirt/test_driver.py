@@ -23402,6 +23402,12 @@ class LibvirtConnTestCase(test.NoDBTestCase,
         expected = '<tcg><tb-cache unit="MiB">10</tb-cache></tcg>'
         self.assertXmlEqual(expected, cfg.features[2].to_xml())
 
+    @mock.patch("nova.virt.libvirt.host.Host.cleanup")
+    def test_cleanup_host(self, mock_cleanup):
+        drvr = libvirt_driver.LibvirtDriver(fake.FakeVirtAPI(), True)
+        drvr.cleanup_host("fake")
+        mock_cleanup.assert_called_once_with()
+
 
 class TestGuestConfigSysinfoSerialOS(test.NoDBTestCase):
     def setUp(self):
