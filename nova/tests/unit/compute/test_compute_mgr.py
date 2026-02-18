@@ -972,15 +972,24 @@ class ComputeManagerUnitTestCase(test.NoDBTestCase,
         self._test_max_concurrent_builds()
 
     def test_max_concurrent_builds_semaphore_limited(self):
+        utils.destroy_long_task_executor()
         self.flags(max_concurrent_builds=123)
-        self.assertEqual(123,
-                         manager.ComputeManager()._build_semaphore._value)
+        compute = manager.ComputeManager()
+        if utils.concurrency_mode_threading():
+            self.assertIsInstance(
+                compute._build_semaphore, compute_utils.UnlimitedSemaphore)
+            self.assertEqual(123, compute._long_task_executor._max_workers)
+        else:
+            self.assertEqual(123, compute._build_semaphore._value)
 
     def test_max_concurrent_builds_semaphore_unlimited(self):
+        utils.destroy_long_task_executor()
         self.flags(max_concurrent_builds=0)
         compute = manager.ComputeManager()
         if utils.concurrency_mode_threading():
-            self.assertEqual(10, compute._build_semaphore._value)
+            self.assertIsInstance(
+                compute._build_semaphore, compute_utils.UnlimitedSemaphore)
+            self.assertEqual(10, compute._long_task_executor._max_workers)
         else:
             self.assertEqual(1000, compute._build_semaphore._value)
 
@@ -1007,17 +1016,46 @@ class ComputeManagerUnitTestCase(test.NoDBTestCase,
         self._test_max_concurrent_snapshots()
 
     def test_max_concurrent_snapshots_semaphore_limited(self):
+        utils.destroy_long_task_executor()
         self.flags(max_concurrent_snapshots=123)
-        self.assertEqual(123,
-                         manager.ComputeManager()._snapshot_semaphore._value)
+        compute = manager.ComputeManager()
+        if utils.concurrency_mode_threading():
+            self.assertIsInstance(
+                compute._snapshot_semaphore, compute_utils.UnlimitedSemaphore)
+            self.assertEqual(123, compute._long_task_executor._max_workers)
+        else:
+            self.assertEqual(123, compute._snapshot_semaphore._value)
 
     def test_max_concurrent_snapshots_semaphore_unlimited(self):
+        utils.destroy_long_task_executor()
         self.flags(max_concurrent_snapshots=0)
         compute = manager.ComputeManager()
         if utils.concurrency_mode_threading():
-            self.assertEqual(5, compute._snapshot_semaphore._value)
+            self.assertIsInstance(
+                compute._snapshot_semaphore, compute_utils.UnlimitedSemaphore)
+            self.assertEqual(10, compute._long_task_executor._max_workers)
         else:
             self.assertEqual(1000, compute._snapshot_semaphore._value)
+
+    @mock.patch.object(manager.LOG, 'warning')
+    def test_max_c_builds_and_snapshots_different_limits(self, mock_log):
+        utils.destroy_long_task_executor()
+        self.flags(max_concurrent_builds=124)
+        self.flags(max_concurrent_snapshots=123)
+        compute = manager.ComputeManager()
+        if utils.concurrency_mode_threading():
+            self.assertEqual(124, compute._long_task_executor._max_workers)
+            mock_log.assert_called_once_with(
+                'In native threading mode the number of concurrent builds, '
+                'and snapshots should be limited to the same number. '
+                'The current configuration has differing limits: '
+                'max_concurrent_builds: %d, max_concurrent_snapshots: %d. '
+                'Nova will use a single, overall limit of %d for these tasks.',
+                124, 123, 124)
+        else:
+            self.assertEqual(123, compute._snapshot_semaphore._value)
+            self.assertEqual(124, compute._build_semaphore._value)
+            mock_log.assert_not_called()
 
     def test_nil_out_inst_obj_host_and_node_sets_nil(self):
         instance = fake_instance.fake_instance_obj(self.context,

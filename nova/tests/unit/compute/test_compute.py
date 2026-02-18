@@ -4090,10 +4090,9 @@ class ComputeTestCase(BaseTestCase,
         with mock.patch.object(compute_utils,
                                'EventReporter') as mock_event:
             if method == 'snapshot':
-                self.assertRaises(test.TestingException,
-                                  self.compute.snapshot_instance,
-                                  self.context, image_id=uuids.snapshot,
-                                  instance=inst_obj)
+                future = self.compute.snapshot_instance(
+                    self.context, image_id=uuids.snapshot, instance=inst_obj)
+                self.assertRaises(test.TestingException, future.result)
                 mock_event.assert_called_once_with(self.context,
                                                    'compute_snapshot_instance',
                                                    CONF.host,

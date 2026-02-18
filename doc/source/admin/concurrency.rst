@@ -96,6 +96,13 @@ tasks to be executed concurrently.
   more performant live migration is needed then enable
   :oslo.config:option:`libvirt.live_migration_parallel_connections` instead.
 
+* :oslo.config:option:`max_concurrent_builds` and
+  :oslo.config:option:`max_concurrent_snapshots`: In native threading mode
+  both types of operations using a common shared executor to free up the RPC
+  handler workers. Therefore both type of operations are counted against the
+  same shared maximum limit. If the two options are set to different values
+  then the shared limit will be the bigger of the two values.
+
 Seeing the usage of the pools
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
