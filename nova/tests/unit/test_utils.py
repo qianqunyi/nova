@@ -2154,8 +2154,8 @@ class StaticallyDelayingCancellableTaskExecutorWrapperTest(test.NoDBTestCase):
             2, utils._get_default_executor())
         self.addCleanup(executor.shutdown, wait=True)
 
-        future1 = executor.submit_with_delay(task1)
         task1_start = time.monotonic()
+        future1 = executor.submit_with_delay(task1)
         # wait a bit so the wrapper is picking it up and waiting for its
         # deadline
         time.sleep(1)
@@ -2163,8 +2163,8 @@ class StaticallyDelayingCancellableTaskExecutorWrapperTest(test.NoDBTestCase):
         self.assertFalse(task1_started.is_set())
 
         # now submit the second task, it will be queued
-        future2 = executor.submit_with_delay(task2)
         task2_start = time.monotonic()
+        future2 = executor.submit_with_delay(task2)
         self.assertFalse(executor._queue.empty())
         self.assertFalse(task1_started.is_set())
 
