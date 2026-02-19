@@ -664,7 +664,14 @@ class ComputeAPI(object):
         if not client.can_send_version('6.0'):
             # We always pass the instance until the 5.0 version
             msg_args['instance'] = instance
-        cctxt = client.prepare(
+        # NOTE(gmaan): This is called by the destination compute's
+        # revert_resize() on source compute. Destination compute check
+        # with source compute if instance storage is shared or not so
+        # that it can decide if disks needs to be destroyed. Make this
+        # RPC request to 'compute-alt' topic so that the shutdown request
+        # will wait for the compute to finish the revert resize.
+        cctxt = self.prepare_for_alt_rpcserver(
+                client,
                 server=_compute_host(host, instance), version=version)
         return cctxt.call(ctxt, 'check_instance_shared_storage', **msg_args)
 
@@ -746,7 +753,11 @@ class ComputeAPI(object):
             msg_args.pop('request_spec')
             version = '5.0'
 
-        cctxt = client.prepare(
+        # NOTE(gmaan): This is final step of resize/migration. Make this
+        # RPC request to 'compute-alt' topic so that the shutdown request
+        # will wait for the compute to finish the in-progress migration.
+        cctxt = self.prepare_for_alt_rpcserver(
+                client,
                 server=host, version=version)
         cctxt.cast(ctxt, 'finish_resize', **msg_args)
 
@@ -765,8 +776,14 @@ class ComputeAPI(object):
             msg_args.pop('request_spec')
             version = '5.0'
 
-        cctxt = client.prepare(
-                server=host, version=version)
+        # NOTE(gmaan): This is called by the destination compute's
+        # revert_resize() on source compute. Destination compute has deleted
+        # the new instance on destination and asked source compute to power
+        # on the old instance on source. Make this RPC request to 'compute-alt'
+        # topic so that the shutdown request will wait for
+        # the compute to finish the revert resize.
+        cctxt = self.prepare_for_alt_rpcserver(
+                client, server=host, version=version)
         cctxt.cast(ctxt, 'finish_revert_resize', **msg_args)
 
     def finish_snapshot_based_resize_at_dest(
@@ -805,7 +822,12 @@ class ComputeAPI(object):
             msg_args['request_spec'] = request_spec
         if not client.can_send_version(version):
             raise exception.MigrationError(reason=_('Compute too old'))
-        cctxt = client.prepare(
+        # NOTE(gmaan): This is the cross-cell resize case to finish the
+        # snapshot-based resize on the destination compute. Make this RPC
+        # request to 'compute-alt' topic so that the shutdown request will
+        # wait for the compute to finish the in-progress cross-cell resize.
+        cctxt = self.prepare_for_alt_rpcserver(
+            client,
             server=migration.dest_compute, version=version,
             call_monitor_timeout=CONF.rpc_response_timeout,
             timeout=CONF.long_rpc_timeout)
@@ -839,10 +861,17 @@ class ComputeAPI(object):
         client = self.router.client(ctxt)
         if not client.can_send_version(version):
             raise exception.MigrationError(reason=_('Compute too old'))
-        cctxt = client.prepare(server=migration.source_compute,
-                               version=version,
-                               call_monitor_timeout=CONF.rpc_response_timeout,
-                               timeout=CONF.long_rpc_timeout)
+        # NOTE(gmaan): This is called after the
+        # revert_snapshot_based_resize_at_dest so revert resize is completed on
+        # destination side. We should complete it on source compute also. Make
+        # this RPC request to 'compute-alt' topic so that the shutdown request
+        # will wait for the compute to finish the cross-cell revert resize.
+        cctxt = self.prepare_for_alt_rpcserver(
+                client,
+                server=migration.source_compute,
+                version=version,
+                call_monitor_timeout=CONF.rpc_response_timeout,
+                timeout=CONF.long_rpc_timeout)
         return cctxt.call(
             ctxt, 'finish_revert_snapshot_based_resize_at_source',
             instance=instance, migration=migration)
@@ -1038,6 +1067,13 @@ class ComputeAPI(object):
                 version = '5.0'
                 msg_args['request_spec'] = (
                     request_spec.to_legacy_request_spec_dict())
+        # NOTE(gmaan): This is called by the conductor on the destination
+        # compute to check and start the resize/cold migration on source.
+        # This method can be called again by the conductor if the destination
+        # compute asks the conductor to reschedule the migration to another
+        # host. In both case, resize is not yet started, so this RPC request
+        # uses 'compute' topic. If a shutdown is initiated, then not taking
+        # the resize request at this stage is acceptable.
         cctxt = client.prepare(server=host, version=version)
         cctxt.cast(ctxt, 'prep_resize', **msg_args)
 
@@ -1086,6 +1122,10 @@ class ComputeAPI(object):
             msg_args['request_spec'] = request_spec
         if not client.can_send_version(version):
             raise exception.MigrationPreCheckError(reason=_('Compute too old'))
+        # NOTE(gmaan): This is the cross-cell resize case, and resize is not
+        # yet started, so this RPC request uses 'compute' topic. If a shutdown
+        # is initiated, then not taking the resize request at this stage is
+        # acceptable.
         cctxt = client.prepare(server=destination, version=version,
                                call_monitor_timeout=CONF.rpc_response_timeout,
                                timeout=CONF.long_rpc_timeout)
@@ -1122,10 +1162,17 @@ class ComputeAPI(object):
         client = self.router.client(ctxt)
         if not client.can_send_version(version):
             raise exception.MigrationError(reason=_('Compute too old'))
-        cctxt = client.prepare(server=_compute_host(None, instance),
-                               version=version,
-                               call_monitor_timeout=CONF.rpc_response_timeout,
-                               timeout=CONF.long_rpc_timeout)
+        # NOTE(gmaan): This is the cross-cell resize case, and called after
+        # resize is prepared on destination compute. At this point, resize
+        # is started so make this RPC request to 'compute-alt' topic so that
+        # the shutdown request will wait for the compute to finish the
+        # in-progress cross-cell resize.
+        cctxt = self.prepare_for_alt_rpcserver(
+                client,
+                server=_compute_host(None, instance),
+                version=version,
+                call_monitor_timeout=CONF.rpc_response_timeout,
+                timeout=CONF.long_rpc_timeout)
         return cctxt.call(
             ctxt, 'prep_snapshot_based_resize_at_source',
             instance=instance, migration=migration, snapshot_id=snapshot_id)
@@ -1253,7 +1300,13 @@ class ComputeAPI(object):
                 msg_args.pop('request_spec')
                 version = '5.0'
 
-        cctxt = client.prepare(server=_compute_host(None, instance),
+        # NOTE(gmaan): This is called by destination compute's prep_resize()
+        # to start the migration on source compute. Make this RPC request to
+        # 'compute-alt' topic so that the shutdown request will wait for
+        # the compute to finish the in-progress migration.
+        cctxt = self.prepare_for_alt_rpcserver(
+                client,
+                server=_compute_host(None, instance),
                 version=version)
         cctxt.cast(ctxt, 'resize_instance', **msg_args)
 
@@ -1278,6 +1331,11 @@ class ComputeAPI(object):
             msg_args.pop('request_spec')
             version = '5.0'
 
+        # NOTE(gmaan): This revert resize is initiated by API on the
+        # destination compute, and the revert resize has not yet started.
+        # So this RPC request uses the 'compute' topic. If a shutdown is
+        # initiated, then not taking the revert resize request at this stage
+        # is acceptable.
         cctxt = client.prepare(
                 server=_compute_host(host, instance), version=version)
         cctxt.cast(ctxt, 'revert_resize', **msg_args)
@@ -1305,6 +1363,11 @@ class ComputeAPI(object):
         client = self.router.client(ctxt)
         if not client.can_send_version(version):
             raise exception.MigrationError(reason=_('Compute too old'))
+        # NOTE(gmaan): This revert resize for cross-cell resize case. It is
+        # initiated by the conductor and the revert resize has not yet started.
+        # So this RPC request uses the 'compute' topic. If a shutdown is
+        # initiated, then not taking the revert resize request at this stage
+        # is acceptable.
         cctxt = client.prepare(server=migration.dest_compute,
                                version=version,
                                call_monitor_timeout=CONF.rpc_response_timeout,
