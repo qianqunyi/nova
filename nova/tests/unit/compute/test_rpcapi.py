@@ -131,10 +131,13 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
         prepare_extra_kwargs = {}
         cm_timeout = kwargs.pop('call_monitor_timeout', None)
         timeout = kwargs.pop('timeout', None)
+        topic_alt = kwargs.pop('topic_alt', None)
         if cm_timeout:
             prepare_extra_kwargs['call_monitor_timeout'] = cm_timeout
         if timeout:
             prepare_extra_kwargs['timeout'] = timeout
+        if topic_alt:
+            prepare_extra_kwargs['topic'] = topic_alt
 
         # NOTE(sbauza): If expected args are provided, we need to use them
         # for the expected kwargs and just add the needed _return_value that
@@ -368,7 +371,8 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
     def test_validate_console_port(self):
         self._test_compute_api('validate_console_port', 'call',
                 instance=self.fake_instance_obj, port="5900",
-                console_type="novnc", version='6.0')
+                console_type="novnc", version='6.0',
+                topic_alt=compute_rpcapi.RPC_TOPIC_ALT)
 
     def test_host_maintenance_mode(self):
         self._test_compute_api('host_maintenance_mode', 'call',
@@ -387,7 +391,8 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
                 instance=self.fake_instance_obj, dest='dest',
                 block_migration='blockity_block', host='tsoh',
                 migration='migration',
-                migrate_data={}, version='6.0')
+                migrate_data={}, version='6.0',
+                topic_alt=compute_rpcapi.RPC_TOPIC_ALT)
 
     def test_live_migration_force_complete(self):
         migration = migration_obj.Migration()
@@ -420,7 +425,8 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
         self._test_compute_api('post_live_migration_at_destination', 'call',
                 instance=self.fake_instance_obj,
                 block_migration='block_migration', host='host', version='6.0',
-                timeout=1234, call_monitor_timeout=60)
+                timeout=1234, call_monitor_timeout=60,
+                topic_alt=compute_rpcapi.RPC_TOPIC_ALT)
 
     def test_pause_instance(self):
         self._test_compute_api('pause_instance', 'cast',
@@ -448,7 +454,8 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
                 expected_args, instance=self.fake_instance_obj,
                 block_migration='block_migration', disk='disk', host='host',
                 migrate_data=None, version='6.0',
-                call_monitor_timeout=60, timeout=1234)
+                call_monitor_timeout=60, timeout=1234,
+                topic_alt=compute_rpcapi.RPC_TOPIC_ALT)
 
     def test_supports_numa_live_migration(self):
         mock_client = mock.MagicMock()
@@ -506,10 +513,19 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
             instance=self.fake_instance_obj, block_migration=False,
             disk_over_commit=False)
 
+    def test_rollback_live_migration_at_destination(self):
+        self._test_compute_api('rollback_live_migration_at_destination',
+                               'cast', instance=self.fake_instance_obj,
+                               host='host', destroy_disks=True,
+                               migrate_data=None, version='6.0',
+                               _return_value=None,
+                               topic_alt=compute_rpcapi.RPC_TOPIC_ALT)
+
     def test_drop_move_claim_at_destination(self):
         self._test_compute_api('drop_move_claim_at_destination', 'call',
                                instance=self.fake_instance_obj, host='host',
-                               version='6.0', _return_value=None)
+                               version='6.0', _return_value=None,
+                               topic_alt=compute_rpcapi.RPC_TOPIC_ALT)
 
     def test_prep_resize(self):
         self._test_compute_api('prep_resize', 'cast',
@@ -965,7 +981,8 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
     def test_remove_volume_connection(self):
         self._test_compute_api('remove_volume_connection', 'call',
                 instance=self.fake_instance_obj, volume_id='id', host='host',
-                delete_attachment=True, version='6.3')
+                delete_attachment=True, version='6.3',
+                topic_alt=compute_rpcapi.RPC_TOPIC_ALT)
 
     def test_rescue_instance(self):
         self._test_compute_api('rescue_instance', 'cast',
@@ -1218,7 +1235,8 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
         self._test_compute_api('external_instance_event', 'cast',
                                instances=[self.fake_instance_obj],
                                events=['event'],
-                               version='6.0')
+                               version='6.0',
+                               topic_alt=compute_rpcapi.RPC_TOPIC_ALT)
 
     def test_build_and_run_instance(self):
         # With rpcapi 5.11, when a list of accel_uuids is passed as a param,
@@ -1354,3 +1372,45 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
             instance=self.fake_instance_obj,
             share_mapping=self.get_fake_share_mapping(),
             version='6.4')
+
+    def test_prepare_for_alt_rpcserver_select_topic_alt(self):
+        rpcapi = compute_rpcapi.ComputeAPI()
+        mock_client = mock.MagicMock()
+        mock_client.can_send_version.return_value = True
+        rpcapi.prepare_for_alt_rpcserver(
+            mock_client, server='fake_host', version='6.5')
+        mock_client.can_send_version.assert_called_once_with('6.5')
+        mock_client.prepare.assert_called_once_with(
+            server='fake_host',
+            version='6.5',
+            topic=compute_rpcapi.RPC_TOPIC_ALT)
+
+    def test_prepare_for_alt_rpcserver_fallback_topic_for_old_compute(self):
+        rpcapi = compute_rpcapi.ComputeAPI()
+        mock_client = mock.MagicMock()
+        mock_client.can_send_version.return_value = False
+        rpcapi.prepare_for_alt_rpcserver(
+            mock_client, server='fake_host', version='6.0')
+        mock_client.can_send_version.assert_called_once_with('6.5')
+        mock_client.prepare.assert_called_once_with(
+            server='fake_host',
+            version='6.0',
+            topic=compute_rpcapi.RPC_TOPIC)
+
+    def test_prepare_for_alt_rpcserver_with_extra_kwargs(self):
+        rpcapi = compute_rpcapi.ComputeAPI()
+        mock_client = mock.MagicMock()
+        mock_client.can_send_version.return_value = True
+        rpcapi.prepare_for_alt_rpcserver(
+            mock_client,
+            server='fake_host',
+            version='6.5',
+            call_monitor_timeout=60,
+            timeout=120)
+        mock_client.can_send_version.assert_called_once_with('6.5')
+        mock_client.prepare.assert_called_once_with(
+            server='fake_host',
+            version='6.5',
+            topic=compute_rpcapi.RPC_TOPIC_ALT,
+            call_monitor_timeout=60,
+            timeout=120)

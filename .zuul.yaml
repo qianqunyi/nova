@@ -139,6 +139,44 @@
     post-run: playbooks/nova-live-migration/post-run.yaml
 
 - job:
+    name: nova-graceful-shutdown
+    parent: devstack-multinode
+    description: |
+      Run Nova graceful shutdown tests.
+    run: playbooks/nova-graceful-shutdown/run.yaml
+    timeout: 10800
+    vars:
+      devstack_services:
+        neutron-trunk: true
+        openstack-cli-server: true
+        s-account: false
+        s-container: false
+        s-object: false
+        s-proxy: false
+        c-bak: false
+      tempest_test_regex: ''
+      devstack_localrc:
+        <<: *uec_image_vars
+        SERVICE_GRACEFUL_SHUTDOWN_TIMEOUT: 180
+        NOVA_ALLOW_MOVE_TO_SAME_HOST: false
+        LIVE_MIGRATION_AVAILABLE: true
+        USE_BLOCK_MIGRATION_FOR_LIVE_MIGRATION: true
+    group-vars:
+      subnode:
+        devstack_services:
+          openstack-cli-server: true
+          s-account: false
+          s-container: false
+          s-object: false
+          s-proxy: false
+          c-bak: false
+        devstack_localrc:
+          SERVICE_GRACEFUL_SHUTDOWN_TIMEOUT: 180
+          NOVA_ALLOW_MOVE_TO_SAME_HOST: false
+          LIVE_MIGRATION_AVAILABLE: true
+          USE_BLOCK_MIGRATION_FOR_LIVE_MIGRATION: true
+
+- job:
     name: nova-alt-configurations
     parent: tempest-multinode-full-py3
     nodeset: devstack-two-node-debian-bookworm
@@ -829,6 +867,9 @@
               - ^nova/network/.*$
               - nova/virt/libvirt/vif.py
         - nova-live-migration
+        # NOTE(gmaan): We will be running the graceful shutdown testing in
+        # check pipeline only and not required to test in gate as such.
+        - nova-graceful-shutdown
         - nova-live-migration-ceph
         - nova-lvm
         - nova-multi-cell
