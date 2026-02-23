@@ -320,6 +320,13 @@ class ConductorTestCase(_BaseTestCase, test.TestCase):
         mock_log.warning.assert_called_once()
         mock_sleep.assert_called_once_with(20)
 
+    @mock.patch('time.sleep')
+    def test_graceful_shutdown_no_negative_sleep_time(self, mock_sleep):
+        # If sleep time end up with negative value, fallback to slep(0)
+        self.flags(manager_shutdown_timeout=50, graceful_shutdown_timeout=5)
+        self.conductor.graceful_shutdown()
+        mock_sleep.assert_called_once_with(0)
+
     def test_provider_fw_rule_get_all(self):
         result = self.conductor.provider_fw_rule_get_all(self.context)
         self.assertEqual([], result)

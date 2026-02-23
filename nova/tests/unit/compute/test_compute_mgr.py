@@ -8005,6 +8005,16 @@ class ComputeManagerUnitTestCase(test.NoDBTestCase,
         mock_sleep.assert_called_once_with(20)
         mock_cleanup.assert_called_once_with()
 
+    @mock.patch('time.sleep')
+    @mock.patch('nova.compute.manager.ComputeManager.cleanup_host')
+    def test_graceful_shutdown_no_negative_sleep_time(
+            self, mock_cleanup, mock_sleep):
+        # If sleep time end up with negative value, fallback to slep(0)
+        self.flags(manager_shutdown_timeout=50, graceful_shutdown_timeout=5)
+        self.compute.graceful_shutdown()
+        mock_sleep.assert_called_once_with(0)
+        mock_cleanup.assert_called_once_with()
+
     @mock.patch('nova.objects.BlockDeviceMappingList.get_by_instance_uuid')
     @mock.patch('nova.compute.manager.ComputeManager._delete_instance')
     def test_terminate_instance_no_bdm_volume_id(self, mock_delete_instance,

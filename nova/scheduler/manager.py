@@ -172,7 +172,7 @@ class SchedulerManager(manager.Manager):
                         'killed before the manager finishes waiting.',
                         CONF.manager_shutdown_timeout,
                         CONF.graceful_shutdown_timeout)
-            sleep_time = CONF.graceful_shutdown_timeout - 10
+            sleep_time = max(0, CONF.graceful_shutdown_timeout - 10)
         else:
             sleep_time = CONF.manager_shutdown_timeout
         LOG.debug('Scheduler service manager is waiting for %s seconds to '
