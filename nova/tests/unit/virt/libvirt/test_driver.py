@@ -5301,11 +5301,14 @@ class LibvirtConnTestCase(test.NoDBTestCase,
             cfg = drvr._get_guest_config(instance_ref, [],
                                         image_meta, disk_info)
 
-            self.assertIsInstance(cfg.cputune.iothreadpin,
+            self.assertIsInstance(cfg.cputune.iothreadpin, list)
+            self.assertEqual(1, len(cfg.cputune.iothreadpin))
+            self.assertIsInstance(cfg.cputune.iothreadpin[0],
                                 vconfig.LibvirtConfigGuestCPUTuneIOThreadPin)
+            self.assertEqual(1, cfg.cputune.iothreadpin[0].iothread)
             self.assertEqual(cfg.cputune.emulatorpin.cpuset,
-                            cfg.cputune.iothreadpin.cpuset)
-            self.assertEqual(set([6]), cfg.cputune.iothreadpin.cpuset)
+                            cfg.cputune.iothreadpin[0].cpuset)
+            self.assertEqual(set([6]), cfg.cputune.iothreadpin[0].cpuset)
 
     @mock.patch.object(host.Host, "_check_machine_type", new=mock.Mock())
     def test_get_guest_config_iothreadpin_shared_emulator_threads(self):
@@ -5356,11 +5359,14 @@ class LibvirtConnTestCase(test.NoDBTestCase,
             cfg = drvr._get_guest_config(instance_ref, [],
                                         image_meta, disk_info)
 
-            self.assertIsInstance(cfg.cputune.iothreadpin,
+            self.assertIsInstance(cfg.cputune.iothreadpin, list)
+            self.assertEqual(1, len(cfg.cputune.iothreadpin))
+            self.assertIsInstance(cfg.cputune.iothreadpin[0],
                                 vconfig.LibvirtConfigGuestCPUTuneIOThreadPin)
+            self.assertEqual(1, cfg.cputune.iothreadpin[0].iothread)
             self.assertEqual(cfg.cputune.emulatorpin.cpuset,
-                            cfg.cputune.iothreadpin.cpuset)
-            self.assertEqual(set([1, 2]), cfg.cputune.iothreadpin.cpuset)
+                            cfg.cputune.iothreadpin[0].cpuset)
+            self.assertEqual(set([1, 2]), cfg.cputune.iothreadpin[0].cpuset)
 
     @mock.patch.object(host.Host, "_check_machine_type", new=mock.Mock())
     def test_get_guest_config_iothreadpin_numa_topology(self):
@@ -5407,11 +5413,15 @@ class LibvirtConnTestCase(test.NoDBTestCase,
             cfg = drvr._get_guest_config(instance_ref, [],
                                         image_meta, disk_info)
 
-            self.assertIsInstance(cfg.cputune.iothreadpin,
+            self.assertIsInstance(cfg.cputune.iothreadpin, list)
+            self.assertEqual(1, len(cfg.cputune.iothreadpin))
+            self.assertIsInstance(cfg.cputune.iothreadpin[0],
                                 vconfig.LibvirtConfigGuestCPUTuneIOThreadPin)
+            self.assertEqual(1, cfg.cputune.iothreadpin[0].iothread)
             self.assertEqual(cfg.cputune.emulatorpin.cpuset,
-                            cfg.cputune.iothreadpin.cpuset)
-            self.assertEqual(set([0, 1, 2, 3]), cfg.cputune.iothreadpin.cpuset)
+                            cfg.cputune.iothreadpin[0].cpuset)
+            self.assertEqual(set([0, 1, 2, 3]),
+                             cfg.cputune.iothreadpin[0].cpuset)
 
     def test_get_guest_config_numa_host_instance_shared_emulthreads_err(
             self):

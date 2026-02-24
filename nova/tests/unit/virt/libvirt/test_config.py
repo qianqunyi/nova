@@ -4056,8 +4056,9 @@ class LibvirtConfigGuestCPUTuneTest(LibvirtConfigBaseTest):
         cputune.emulatorpin = emu
 
         iot = config.LibvirtConfigGuestCPUTuneIOThreadPin()
+        iot.iothread = 1
         iot.cpuset = set([0, 1, 2, 3, 4, 5, 6, 7])
-        cputune.iothreadpin = iot
+        cputune.iothreadpin.append(iot)
 
         sch0 = config.LibvirtConfigGuestCPUTuneVCPUSched()
         sch0.vcpus = set([0, 1, 2, 3])
@@ -4073,7 +4074,7 @@ class LibvirtConfigGuestCPUTuneTest(LibvirtConfigBaseTest):
         self.assertXmlEqual("""
           <cputune>
             <emulatorpin cpuset="0-7"/>
-            <iothreadpin cpuset="0-7"/>
+            <iothreadpin iothread="1" cpuset="0-7"/>
             <vcpupin vcpu="0" cpuset="0-1"/>
             <vcpupin vcpu="1" cpuset="2-3"/>
             <vcpupin vcpu="2" cpuset="4-5"/>
