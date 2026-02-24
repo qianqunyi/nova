@@ -1392,6 +1392,53 @@ show_response_v2100['properties']['server'] = {
     'oneOf': [_server_response_v2100, _server_cell_down_response_v271],
 }
 
+create_response = {
+    'type': 'object',
+    'oneOf': [
+        {
+            'properties': {
+                'reservation_id': {'type': 'string'},
+            },
+            'required': ['reservation_id'],
+            'additionalProperties': False,
+        },
+        {
+            'properties': {
+                'server': {
+                    'type': 'object',
+                    'properties': {
+                        'adminPass': {'type': 'string'},
+                        'id': {'type': 'string', 'format': 'uuid'},
+                        'links': response_types.links,
+                        'security_groups': {
+                            'type': 'array',
+                            'items': {
+                                'type': 'object',
+                                'properties': {
+                                    'name': {'type': 'string'},
+                                },
+                                'required': ['name'],
+                                'additionalProperties': False,
+                            },
+                        },
+                        'OS-DCF:diskConfig': {
+                            'type': 'string', 'enum': ['AUTO', 'MANUAL'],
+                        },
+                    },
+                    'required': [
+                        # adminPass is an unfortunate example of config-driven
+                        # API behavior and isn't present unless enabled
+                        'id', 'links', 'security_groups', 'OS-DCF:diskConfig'
+                    ],
+                    'additionalProperties': False,
+                },
+            },
+            'required': ['server'],
+            'additionalProperties': False,
+        },
+    ],
+}
+
 resize_response = {'type': 'null'}
 
 confirm_resize_response = {'type': 'null'}
