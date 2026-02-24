@@ -1678,6 +1678,13 @@ class SchedulerManagerTestCase(test.NoDBTestCase):
         mock_log.warning.assert_called_once()
         mock_sleep.assert_called_once_with(20)
 
+    @mock.patch('time.sleep')
+    def test_graceful_shutdown_no_negative_sleep_time(self, mock_sleep):
+        # If sleep time end up with negative value, fallback to slep(0)
+        self.flags(manager_shutdown_timeout=50, graceful_shutdown_timeout=5)
+        self.manager.graceful_shutdown()
+        mock_sleep.assert_called_once_with(0)
+
     @mock.patch('nova.objects.service.ServiceList.get_by_binary')
     @mock.patch('nova.objects.host_mapping.discover_hosts')
     def test_discover_hosts(self, mock_discover, mock_get_by_binary):
