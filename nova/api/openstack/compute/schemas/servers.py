@@ -752,6 +752,8 @@ _server_status = {
         'SHUTOFF',
         'SOFT_DELETED',
         'SUSPENDED',
+        # UNKNOWN can be returned if the DB is corrupt
+        'UNKNOWN',
         'VERIFY_RESIZE',
     ],
 }
@@ -861,6 +863,24 @@ _server_cell_down_response = {
     ],
     'additionalProperties': False,
 }
+
+_server_detail_cell_down_response = copy.deepcopy(_server_cell_down_response)
+del _server_detail_cell_down_response['properties']['flavor']
+del _server_detail_cell_down_response['properties']['image']
+del _server_detail_cell_down_response['properties']['user_id']
+del _server_detail_cell_down_response['properties'][
+    'OS-EXT-AZ:availability_zone'
+]
+del _server_detail_cell_down_response['properties']['OS-EXT-STS:power_state']
+_server_detail_cell_down_response['required'].remove('flavor')
+_server_detail_cell_down_response['required'].remove('image')
+_server_detail_cell_down_response['required'].remove('user_id')
+_server_detail_cell_down_response['required'].remove(
+    'OS-EXT-AZ:availability_zone'
+)
+_server_detail_cell_down_response['required'].remove(
+    'OS-EXT-STS:power_state'
+)
 
 _server_cell_down_response_v271 = copy.deepcopy(_server_cell_down_response)
 _server_cell_down_response_v271['properties'].update({
@@ -1054,7 +1074,7 @@ _server_response_v23 = copy.deepcopy(_server_response)
 _server_response_v23['properties'].update({
     'OS-EXT-SRV-ATTR:hostname': {'type': 'string'},
     'OS-EXT-SRV-ATTR:kernel_id': {'type': ['string', 'null']},
-    'OS-EXT-SRV-ATTR:launch_index': {'type': 'integer'},
+    'OS-EXT-SRV-ATTR:launch_index': {'type': ['integer', 'null']},
     'OS-EXT-SRV-ATTR:ramdisk_id': {'type': ['string', 'null']},
     'OS-EXT-SRV-ATTR:reservation_id': {'type': ['string', 'null']},
     'OS-EXT-SRV-ATTR:root_device_name': {'type': ['string', 'null']},
@@ -1137,6 +1157,9 @@ _server_response_v263['properties'].update({
 })
 _server_response_v263['required'].append('trusted_image_certificates')
 
+# Unfortunately from here the server show and server detail list views differ
+# since server_groups are not shown for the latter. We should remedy that but
+# for now, we need to take different paths.
 _server_response_v271 = copy.deepcopy(_server_response_v263)
 _server_response_v271['properties'].update({
     'server_groups': {
@@ -1153,8 +1176,18 @@ _server_response_v273['properties'].update({
 })
 _server_response_v273['required'].append('locked_reason')
 
+# Note that we based on v2.63 to exclude the server_groups addition
+_server_detail_response_v273 = copy.deepcopy(_server_response_v263)
+_server_detail_response_v273['properties'].update({
+    'locked_reason': {'type': ['null', 'string']},
+})
+_server_detail_response_v273['required'].append('locked_reason')
+
 _server_response_v290 = copy.deepcopy(_server_response_v273)
 _server_response_v290['required'].append('OS-EXT-SRV-ATTR:hostname')
+
+_server_detail_response_v290 = copy.deepcopy(_server_detail_response_v273)
+_server_detail_response_v290['required'].append('OS-EXT-SRV-ATTR:hostname')
 
 _server_response_v296 = copy.deepcopy(_server_response_v290)
 _server_response_v296['properties'].update({
@@ -1162,8 +1195,30 @@ _server_response_v296['properties'].update({
 })
 _server_response_v296['required'].append('pinned_availability_zone')
 
+_server_detail_response_v296 = copy.deepcopy(_server_detail_response_v290)
+_server_detail_response_v296['properties'].update({
+    'pinned_availability_zone': {'type': ['string', 'null']},
+})
+_server_detail_response_v296['required'].append('pinned_availability_zone')
+
 _server_response_v298 = copy.deepcopy(_server_response_v296)
 _server_response_v298['properties']['image']['oneOf'][1]['properties'].update({
+    'properties': {
+        'type': 'object',
+        'patternProperties': {
+            '^[a-zA-Z0-9_:. ]{1,255}$': {
+                'type': ['string', 'null'],
+                'maxLength': 255,
+            },
+        },
+        'additionalProperties': False,
+    },
+})
+
+_server_detail_response_v298 = copy.deepcopy(_server_detail_response_v296)
+_server_detail_response_v298['properties']['image']['oneOf'][1][
+    'properties'
+].update({
     'properties': {
         'type': 'object',
         'patternProperties': {
@@ -1182,6 +1237,93 @@ _server_response_v2100['properties'].update({
 })
 _server_response_v2100['required'].append('scheduler_hints')
 
+_server_detail_response_v2100 = copy.deepcopy(_server_detail_response_v298)
+_server_detail_response_v2100['properties'].update({
+    'scheduler_hints': _hints,
+})
+_server_detail_response_v2100['required'].append('scheduler_hints')
+
+detail_response = {
+    'type': 'object',
+    'properties': {
+        'servers': {
+            'type': 'array',
+            'items': _server_response,
+        },
+        'servers_links': response_types.collection_links,
+    },
+    'required': ['servers'],
+    'additionalProperties': False,
+}
+
+detail_response_v23 = copy.deepcopy(detail_response)
+detail_response_v23['properties']['servers']['items'] = (
+    _server_response_v23
+)
+
+detail_response_v29 = copy.deepcopy(detail_response_v23)
+detail_response_v29['properties']['servers']['items'] = (
+    _server_response_v29
+)
+
+detail_response_v216 = copy.deepcopy(detail_response_v29)
+detail_response_v216['properties']['servers']['items'] = (
+    _server_response_v216
+)
+
+detail_response_v219 = copy.deepcopy(detail_response_v216)
+detail_response_v219['properties']['servers']['items'] = (
+    _server_response_v219
+)
+
+detail_response_v226 = copy.deepcopy(detail_response_v219)
+detail_response_v226['properties']['servers']['items'] = (
+    _server_response_v226
+)
+
+detail_response_v247 = copy.deepcopy(detail_response_v226)
+detail_response_v247['properties']['servers']['items'] = (
+    _server_response_v247
+)
+
+detail_response_v263 = copy.deepcopy(detail_response_v247)
+detail_response_v263['properties']['servers']['items'] = (
+    _server_response_v263
+)
+
+# this is the first version to introduce down cell support. We model this as an
+# entirely different schema rather than making most of the fields optional
+detail_response_v269 = copy.deepcopy(detail_response_v263)
+detail_response_v269['properties']['servers']['items'] = {
+    'oneOf': [_server_response_v263, _server_detail_cell_down_response],
+}
+
+detail_response_v273 = copy.deepcopy(detail_response_v263)
+detail_response_v273['properties']['servers']['items'] = {
+    'oneOf': [_server_detail_response_v273, _server_detail_cell_down_response],
+}
+
+detail_response_v290 = copy.deepcopy(detail_response_v273)
+detail_response_v290['properties']['servers']['items'] = {
+    'oneOf': [_server_detail_response_v290, _server_detail_cell_down_response],
+}
+
+detail_response_v296 = copy.deepcopy(detail_response_v290)
+detail_response_v296['properties']['servers']['items'] = {
+    'oneOf': [_server_detail_response_v296, _server_detail_cell_down_response],
+}
+
+detail_response_v298 = copy.deepcopy(detail_response_v296)
+detail_response_v298['properties']['servers']['items'] = {
+    'oneOf': [_server_detail_response_v298, _server_detail_cell_down_response],
+}
+
+detail_response_v2100 = copy.deepcopy(detail_response_v298)
+detail_response_v2100['properties']['servers']['items'] = {
+    'oneOf': [
+        _server_detail_response_v2100, _server_detail_cell_down_response
+    ],
+}
 
 show_response = {
     'type': 'object',
@@ -1501,7 +1643,7 @@ rebuild_response_v275['properties']['server']['properties'].update(
         'OS-EXT-SRV-ATTR:hypervisor_hostname': {'type': ['string', 'null']},
         'OS-EXT-SRV-ATTR:instance_name': {'type': 'string'},
         'OS-EXT-SRV-ATTR:kernel_id': {'type': ['string', 'null']},
-        'OS-EXT-SRV-ATTR:launch_index': {'type': 'integer'},
+        'OS-EXT-SRV-ATTR:launch_index': {'type': ['integer', 'null']},
         'OS-EXT-SRV-ATTR:ramdisk_id': {'type': ['string', 'null']},
         'OS-EXT-SRV-ATTR:reservation_id': {'type': ['string', 'null']},
         'OS-EXT-SRV-ATTR:root_device_name': {'type': ['string', 'null']},

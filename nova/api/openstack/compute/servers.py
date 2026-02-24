@@ -131,11 +131,25 @@ class ServersController(wsgi.Controller):
         return servers
 
     @wsgi.expected_errors((400, 403))
-    @validation.query_schema(schema.query_params_v275, '2.75')
-    @validation.query_schema(schema.query_params_v273, '2.73', '2.74')
-    @validation.query_schema(schema.query_params_v266, '2.66', '2.72')
-    @validation.query_schema(schema.query_params_v226, '2.26', '2.65')
     @validation.query_schema(schema.query_params_v21, '2.1', '2.25')
+    @validation.query_schema(schema.query_params_v226, '2.26', '2.65')
+    @validation.query_schema(schema.query_params_v266, '2.66', '2.72')
+    @validation.query_schema(schema.query_params_v273, '2.73', '2.74')
+    @validation.query_schema(schema.query_params_v275, '2.75')
+    @validation.response_body_schema(schema.detail_response, '2.1', '2.2')
+    @validation.response_body_schema(schema.detail_response_v23, '2.3', '2.8')
+    @validation.response_body_schema(schema.detail_response_v29, '2.9', '2.15')
+    @validation.response_body_schema(schema.detail_response_v216, '2.16', '2.18')  # noqa: E501
+    @validation.response_body_schema(schema.detail_response_v219, '2.19', '2.25')  # noqa: E501
+    @validation.response_body_schema(schema.detail_response_v226, '2.26', '2.46')  # noqa: E501
+    @validation.response_body_schema(schema.detail_response_v247, '2.47', '2.62')  # noqa: E501
+    @validation.response_body_schema(schema.detail_response_v263, '2.63', '2.68')  # noqa: E501
+    @validation.response_body_schema(schema.detail_response_v269, '2.69', '2.72')  # noqa: E501
+    @validation.response_body_schema(schema.detail_response_v273, '2.73', '2.89')  # noqa: E501
+    @validation.response_body_schema(schema.detail_response_v290, '2.90', '2.95')  # noqa: E501
+    @validation.response_body_schema(schema.detail_response_v296, '2.96', '2.97')  # noqa: E501
+    @validation.response_body_schema(schema.detail_response_v298, '2.98', '2.99')  # noqa: E501
+    @validation.response_body_schema(schema.detail_response_v2100, '2.100')
     def detail(self, req):
         """Returns a list of server details for a given user."""
         context = req.environ['nova.context']
