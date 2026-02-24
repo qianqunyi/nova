@@ -31,7 +31,9 @@ LOG = logging.getLogger(__name__)
 
 class UEFIServersTest(base.ServersTestBase):
 
-    def assertInstanceHasUEFI(self, server):
+    def assertInstanceHasUEFI(
+        self, server, secure_boot=False, stateless=False
+    ):
         ctx = nova_context.get_admin_context()
         instance = objects.Instance.get_by_uuid(ctx, server['id'])
         self.assertIn('image_hw_machine_type', instance.system_metadata)
@@ -40,9 +42,22 @@ class UEFIServersTest(base.ServersTestBase):
         self.assertIn('image_hw_firmware_type', instance.system_metadata)
         self.assertEqual(
             'uefi', instance.system_metadata['image_hw_firmware_type'])
-        self.assertIn('image_os_secure_boot', instance.system_metadata)
-        self.assertEqual(
-            'required', instance.system_metadata['image_os_secure_boot'])
+
+        if secure_boot:
+            self.assertIn('image_os_secure_boot', instance.system_metadata)
+            self.assertEqual(
+                'required', instance.system_metadata['image_os_secure_boot'])
+        else:
+            self.assertNotIn('image_os_secure_boot', instance.system_metadata)
+
+        if stateless:
+            self.assertIn('image_hw_firmware_stateless',
+                          instance.system_metadata)
+            self.assertTrue(
+                instance.system_metadata['image_hw_firmware_stateless'])
+        else:
+            self.assertNotIn('image_hw_firmware_stateless',
+                             instance.system_metadata)
 
     def test_create_server(self):
         orig_create = nova.virt.libvirt.guest.Guest.create
@@ -55,9 +70,8 @@ class UEFIServersTest(base.ServersTestBase):
                 """
                 <os>
                   <type machine='q35'>hvm</type>
-                  <loader type='pflash' readonly='yes'
-                    secure='yes'>/usr/share/OVMF/OVMF_CODE.secboot.fd</loader>
-                  <nvram template='/usr/share/OVMF/OVMF_VARS.secboot.fd'/>
+                  <loader type='pflash' readonly='yes' secure='no'>/usr/share/OVMF/OVMF_CODE.fd</loader>
+                  <nvram template='/usr/share/OVMF/OVMF_VARS.fd'/>
                   <boot dev='hd'/>
                   <smbios mode='sysinfo'/>
                 </os>
@@ -98,7 +112,6 @@ class UEFIServersTest(base.ServersTestBase):
             'properties': {
                 'hw_machine_type': 'q35',
                 'hw_firmware_type': 'uefi',
-                'os_secure_boot': 'required',
             }
         }
         self.glance.create(None, uefi_image)
@@ -107,3 +120,192 @@ class UEFIServersTest(base.ServersTestBase):
 
         # ensure our instance's system_metadata field is correct
         self.assertInstanceHasUEFI(server)
+
+    def test_create_server_secure_boot(self):
+        orig_create = nova.virt.libvirt.guest.Guest.create
+
+        def fake_create(cls, xml, host):
+            xml = re.sub('type arch.*machine',
+                'type machine', xml)
+            tree = etree.fromstring(xml)
+            self.assertXmlEqual(
+                """
+                <os>
+                  <type machine='q35'>hvm</type>
+                  <loader type='pflash' readonly='yes' secure='yes'>/usr/share/OVMF/OVMF_CODE.secboot.fd</loader>
+                  <nvram template='/usr/share/OVMF/OVMF_VARS.secboot.fd'/>
+                  <boot dev='hd'/>
+                  <smbios mode='sysinfo'/>
+                </os>
+                """,  # noqa: E501
+                etree.tostring(tree.find('./os'), encoding='unicode'))
+
+            return orig_create(xml, host)
+
+        self.stub_out('nova.virt.libvirt.guest.Guest.create', fake_create)
+
+        compute = self.start_compute()
+
+        # ensure we are reporting the correct trait
+        traits = self._get_provider_traits(self.compute_rp_uuids[compute])
+        self.assertIn('COMPUTE_SECURITY_UEFI_SECURE_BOOT', traits)
+
+        # create a server with UEFI and secure boot
+        timestamp = datetime.datetime(
+            2021, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc
+        )
+        sb_image = {
+            'id': uuids.sb_image,
+            'name': 'sb_image',
+            'created_at': timestamp,
+            'updated_at': timestamp,
+            'deleted_at': None,
+            'deleted': False,
+            'status': 'active',
+            'is_public': False,
+            'container_format': 'ova',
+            'disk_format': 'vhd',
+            'size': 74185822,
+            'min_ram': 0,
+            'min_disk': 0,
+            'protected': False,
+            'visibility': 'public',
+            'tags': [],
+            'properties': {
+                'hw_machine_type': 'q35',
+                'hw_firmware_type': 'uefi',
+                'os_secure_boot': 'required',
+            }
+        }
+        self.glance.create(None, sb_image)
+
+        server = self._create_server(image_uuid=uuids.sb_image)
+
+        # ensure our instance's system_metadata field is correct
+        self.assertInstanceHasUEFI(server, secure_boot=True)
+
+    def test_create_server_stateless(self):
+        orig_create = nova.virt.libvirt.guest.Guest.create
+
+        def fake_create(cls, xml, host):
+            xml = re.sub('type arch.*machine',
+                'type machine', xml)
+            tree = etree.fromstring(xml)
+            self.assertXmlEqual(
+                """
+                <os>
+                  <type machine='q35'>hvm</type>
+                  <loader type='pflash' readonly='yes' secure='no' stateless='yes'>/usr/share/OVMF/OVMF_CODE.fd</loader>
+                  <boot dev='hd'/>
+                  <smbios mode='sysinfo'/>
+                </os>
+                """,  # noqa: E501
+                etree.tostring(tree.find('./os'), encoding='unicode'))
+
+            return orig_create(xml, host)
+
+        self.stub_out('nova.virt.libvirt.guest.Guest.create', fake_create)
+
+        compute = self.start_compute(libvirt_version=8006000)
+
+        # ensure we are reporting the correct trait
+        traits = self._get_provider_traits(self.compute_rp_uuids[compute])
+        self.assertIn('COMPUTE_SECURITY_STATELESS_FIRMWARE', traits)
+
+        # create a server with UEFI and secure boot
+        timestamp = datetime.datetime(
+            2021, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc
+        )
+        stateless_image = {
+            'id': uuids.stateless_image,
+            'name': 'stateless_image',
+            'created_at': timestamp,
+            'updated_at': timestamp,
+            'deleted_at': None,
+            'deleted': False,
+            'status': 'active',
+            'is_public': False,
+            'container_format': 'ova',
+            'disk_format': 'vhd',
+            'size': 74185822,
+            'min_ram': 0,
+            'min_disk': 0,
+            'protected': False,
+            'visibility': 'public',
+            'tags': [],
+            'properties': {
+                'hw_machine_type': 'q35',
+                'hw_firmware_type': 'uefi',
+                'hw_firmware_stateless': True,
+            }
+        }
+        self.glance.create(None, stateless_image)
+
+        server = self._create_server(image_uuid=uuids.stateless_image)
+
+        # ensure our instance's system_metadata field is correct
+        self.assertInstanceHasUEFI(server, stateless=True)
+
+    def test_create_server_secure_boot_stateless(self):
+        orig_create = nova.virt.libvirt.guest.Guest.create
+
+        def fake_create(cls, xml, host):
+            xml = re.sub('type arch.*machine',
+                'type machine', xml)
+            tree = etree.fromstring(xml)
+            self.assertXmlEqual(
+                """
+                <os>
+                  <type machine='q35'>hvm</type>
+                  <loader type='pflash' readonly='yes' secure='yes' stateless='yes'>/usr/share/OVMF/OVMF_CODE.secboot.fd</loader>
+                  <boot dev='hd'/>
+                  <smbios mode='sysinfo'/>
+                </os>
+                """,  # noqa: E501
+                etree.tostring(tree.find('./os'), encoding='unicode'))
+
+            return orig_create(xml, host)
+
+        self.stub_out('nova.virt.libvirt.guest.Guest.create', fake_create)
+
+        compute = self.start_compute(libvirt_version=8006000)
+
+        # ensure we are reporting the correct trait
+        traits = self._get_provider_traits(self.compute_rp_uuids[compute])
+        self.assertIn('COMPUTE_SECURITY_UEFI_SECURE_BOOT', traits)
+        self.assertIn('COMPUTE_SECURITY_STATELESS_FIRMWARE', traits)
+
+        # create a server with UEFI and secure boot
+        timestamp = datetime.datetime(
+            2021, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc
+        )
+        sb_image = {
+            'id': uuids.sb_image,
+            'name': 'sb_image',
+            'created_at': timestamp,
+            'updated_at': timestamp,
+            'deleted_at': None,
+            'deleted': False,
+            'status': 'active',
+            'is_public': False,
+            'container_format': 'ova',
+            'disk_format': 'vhd',
+            'size': 74185822,
+            'min_ram': 0,
+            'min_disk': 0,
+            'protected': False,
+            'visibility': 'public',
+            'tags': [],
+            'properties': {
+                'hw_machine_type': 'q35',
+                'hw_firmware_type': 'uefi',
+                'os_secure_boot': 'required',
+                'hw_firmware_stateless': True,
+            }
+        }
+        self.glance.create(None, sb_image)
+
+        server = self._create_server(image_uuid=uuids.sb_image)
+
+        # ensure our instance's system_metadata field is correct
+        self.assertInstanceHasUEFI(server, secure_boot=True, stateless=True)
