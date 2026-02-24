@@ -7208,6 +7208,7 @@ class LibvirtDriver(driver.ComputeDriver):
 
                 guest.os_loader = loader
                 guest.os_loader_type = 'pflash'
+                guest.os_loader_readonly = True
                 if hw_firmware_stateless:
                     guest.os_loader_stateless = True
                 else:
