@@ -3184,6 +3184,14 @@ class LibvirtConfigGuest(LibvirtConfigObject):
 
         if self.os_firmware is not None:
             os.set("firmware", self.os_firmware)
+            if self.os_loader_secure is not None:
+                firmware = etree.Element("firmware")
+                sb_feature = etree.Element("feature")
+                sb_feature.set("name", "secure-boot")
+                sb_feature.set(
+                    "enabled", self.get_yes_no_str(self.os_loader_secure))
+                firmware.append(sb_feature)
+                os.append(firmware)
 
         type_node = self._text_node("type", self.os_type)
         if self.os_arch is not None:
