@@ -1439,6 +1439,330 @@ create_response = {
     ],
 }
 
+update_response = {
+    'type': 'object',
+    'properties': {
+        'server': {
+            'type': 'object',
+            'properties': {
+                'accessIPv4': {
+                    'type': 'string',
+                    'oneOf': [{'format': 'ipv4'}, {'const': ''}],
+                },
+                'accessIPv6': {
+                    'type': 'string',
+                    'oneOf': [{'format': 'ipv6'}, {'const': ''}],
+                },
+                'addresses': {
+                    'type': 'object',
+                    'patternProperties': {
+                        '^.+$': {
+                            'type': 'array',
+                            'items': {
+                                'type': 'object',
+                                'properties': {
+                                    'addr': {
+                                        'type': 'string',
+                                        'oneOf': [
+                                            {'format': 'ipv4'},
+                                            {'format': 'ipv6'},
+                                        ],
+                                    },
+                                    'version': {
+                                        'type': 'number',
+                                        'enum': [4, 6],
+                                    },
+                                },
+                                'required': ['addr', 'version'],
+                                'additionalProperties': False,
+                            },
+                        },
+                    },
+                    'additionalProperties': False,
+                },
+                'adminPass': {'type': ['null', 'string']},
+                'created': {'type': 'string', 'format': 'date-time'},
+                'fault': {
+                    'type': 'object',
+                    'properties': {
+                        'code': {'type': 'integer'},
+                        'created': {'type': 'string', 'format': 'date-time'},
+                        'details': {'type': 'string'},
+                        'message': {'type': 'string'},
+                    },
+                    'required': ['code', 'created', 'message'],
+                    'additionalProperties': False,
+                },
+                'flavor': {
+                    'type': 'object',
+                    'properties': {
+                        'id': {'type': 'string'},
+                        'links': response_types.links,
+                    },
+                    'additionalProperties': False,
+                },
+                'hostId': {'type': 'string'},
+                'id': {'type': 'string'},
+                'image': {
+                    'oneOf': [
+                        {'type': 'string', 'const': ''},
+                        {
+                            'type': 'object',
+                            'properties': {
+                                'id': {'type': 'string', 'format': 'uuid'},
+                                'links': response_types.links,
+                            },
+                            'additionalProperties': False,
+                        },
+                    ],
+                },
+                'links': response_types.links,
+                'metadata': {
+                    'type': 'object',
+                    'patternProperties': {
+                        '^.+$': {
+                            'type': 'string'
+                        },
+                    },
+                    'additionalProperties': False,
+                },
+                'name': {'type': ['string', 'null']},
+                'progress': {'type': ['null', 'number']},
+                'status': _server_status,
+                'tenant_id': parameter_types.project_id,
+                'updated': {'type': 'string', 'format': 'date-time'},
+                'user_id': parameter_types.user_id,
+                'OS-DCF:diskConfig': {'type': 'string'},
+            },
+            'required': [
+                # fault, progress depend on server state
+                'accessIPv4',
+                'accessIPv6',
+                'addresses',
+                'created',
+                'flavor',
+                'hostId',
+                'id',
+                'image',
+                'links',
+                'metadata',
+                'name',
+                'status',
+                'tenant_id',
+                'updated',
+                'user_id',
+                'OS-DCF:diskConfig',
+            ],
+            'additionalProperties': False,
+        },
+    },
+    'required': [
+        'server'
+    ],
+    'additionalProperties': False,
+}
+
+update_response_v29 = copy.deepcopy(update_response)
+update_response_v29['properties']['server']['properties']['locked'] = {
+    'type': 'boolean',
+}
+update_response_v29['properties']['server']['required'].append('locked')
+
+update_response_v219 = copy.deepcopy(update_response_v29)
+update_response_v219['properties']['server']['properties']['description'] = {
+    'type': ['null', 'string'],
+}
+update_response_v219['properties']['server']['required'].append('description')
+
+update_response_v226 = copy.deepcopy(update_response_v219)
+update_response_v226['properties']['server']['properties']['tags'] = {
+    'type': 'array',
+    'items': {'type': 'string'},
+    'maxItems': 50,
+}
+update_response_v226['properties']['server']['required'].append('tags')
+
+# NOTE(stephenfin): We overwrite rather than extend 'flavor', since we now
+# embed the flavor in this version
+update_response_v247 = copy.deepcopy(update_response_v226)
+update_response_v247['properties']['server']['properties']['flavor'] = {
+    'type': 'object',
+    'properties': {
+        'disk': {'type': 'integer'},
+        'ephemeral': {'type': 'integer'},
+        'extra_specs': {
+            'type': 'object',
+            'patternProperties': {
+                '^.+$': {'type': 'string'},
+            },
+            'additionalProperties': False,
+        },
+        'original_name': {'type': 'string'},
+        'ram': {'type': 'integer'},
+        'swap': {'type': 'integer'},
+        'vcpus': {'type': 'integer'},
+    },
+    'required': ['disk', 'ephemeral', 'original_name', 'ram', 'swap', 'vcpus'],
+    'additionalProperties': False,
+}
+
+update_response_v263 = copy.deepcopy(update_response_v247)
+update_response_v263['properties']['server']['properties'].update(
+    {
+        'trusted_image_certificates': {
+            'type': ['array', 'null'],
+            'items': {'type': 'string'},
+        },
+    },
+)
+update_response_v263['properties']['server']['required'].append(
+    'trusted_image_certificates'
+)
+
+update_response_v271 = copy.deepcopy(update_response_v263)
+update_response_v271['properties']['server']['properties'].update(
+    {
+        'server_groups': {
+            'type': 'array',
+            'items': {'type': 'string', 'format': 'uuid'},
+            'maxLength': 1,
+        },
+    },
+)
+update_response_v271['properties']['server']['required'].append(
+    'server_groups'
+)
+
+update_response_v273 = copy.deepcopy(update_response_v271)
+update_response_v273['properties']['server']['properties'].update(
+    {
+        'locked_reason': {'type': ['null', 'string']},
+    },
+)
+update_response_v273['properties']['server']['required'].append(
+    'locked_reason'
+)
+
+update_response_v275 = copy.deepcopy(update_response_v273)
+update_response_v275['properties']['server']['properties'].update(
+    {
+        'config_drive': {
+            # TODO(stephenfin): Our tests return null but this shouldn't happen
+            # in practice, apparently?
+            'type': ['string', 'boolean', 'null'],
+        },
+        'host_status': {'type': 'string'},
+        'key_name': {'type': ['null', 'string']},
+        'os-extended-volumes:volumes_attached': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'id': {'type': 'string'},
+                    'delete_on_termination': {
+                        'type': 'boolean',
+                        'default': False,
+                    },
+                },
+                'required': ['id', 'delete_on_termination'],
+                'additionalProperties': False,
+            },
+        },
+        'security_groups': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'name': {'type': 'string'},
+                },
+                'required': ['name'],
+                'additionalProperties': False,
+            },
+        },
+        'OS-EXT-AZ:availability_zone': {'type': 'string'},
+        'OS-EXT-SRV-ATTR:host': {'type': ['string', 'null']},
+        'OS-EXT-SRV-ATTR:hostname': {'type': 'string'},
+        'OS-EXT-SRV-ATTR:hypervisor_hostname': {'type': ['string', 'null']},
+        'OS-EXT-SRV-ATTR:instance_name': {'type': 'string'},
+        'OS-EXT-SRV-ATTR:kernel_id': {'type': ['string', 'null']},
+        'OS-EXT-SRV-ATTR:launch_index': {'type': 'integer'},
+        'OS-EXT-SRV-ATTR:ramdisk_id': {'type': ['string', 'null']},
+        'OS-EXT-SRV-ATTR:reservation_id': {'type': ['string', 'null']},
+        'OS-EXT-SRV-ATTR:root_device_name': {'type': ['string', 'null']},
+        'OS-EXT-SRV-ATTR:user_data': {
+            'type': ['string', 'null'], 'format': 'base64', 'maxLength': 65535,
+        },
+        'OS-EXT-STS:power_state': {
+            'type': ['integer', 'null'], 'enum': [0, 1, 3, 4, 6, 7, None],
+        },
+        'OS-EXT-STS:task_state': {'type': ['string', 'null']},
+        'OS-EXT-STS:vm_state': {'type': ['string', 'null']},
+        'OS-SRV-USG:launched_at': {
+            'type': ['string', 'null'], 'format': 'date-time',
+        },
+        'OS-SRV-USG:terminated_at': {
+            'type': ['string', 'null'], 'format': 'date-time',
+        },
+    },
+)
+
+update_response_v275['properties']['server']['required'].extend([
+    'config_drive',
+    'OS-EXT-AZ:availability_zone',
+    'OS-EXT-STS:power_state',
+    'OS-EXT-STS:task_state',
+    'OS-EXT-STS:vm_state',
+    'os-extended-volumes:volumes_attached',
+    'OS-SRV-USG:launched_at',
+    'OS-SRV-USG:terminated_at',
+])
+
+update_response_v275['properties']['server']['properties']['addresses'][
+    'patternProperties'
+]['^.+$']['items']['properties'].update({
+    'OS-EXT-IPS-MAC:mac_addr': {'type': 'string', 'format': 'mac-address'},
+    'OS-EXT-IPS:type': {'type': 'string', 'enum': ['fixed', 'floating']},
+})
+update_response_v275['properties']['server']['properties']['addresses'][
+    'patternProperties'
+]['^.+$']['items']['required'].extend([
+    'OS-EXT-IPS-MAC:mac_addr', 'OS-EXT-IPS:type'
+])
+
+update_response_v296 = copy.deepcopy(update_response_v275)
+update_response_v296['properties']['server']['properties'].update({
+    'pinned_availability_zone': {
+        'type': ['null', 'string'],
+    },
+})
+update_response_v296['properties']['server']['required'].append(
+    'pinned_availability_zone'
+)
+
+update_response_v298 = copy.deepcopy(update_response_v296)
+update_response_v298['properties']['server']['properties']['image']['oneOf'][
+    1
+]['properties'].update({
+    'properties': {
+        'type': 'object',
+        'patternProperties': {
+            '^[a-zA-Z0-9_:. ]{1,255}$': {
+                'type': ['string', 'null'],
+                'maxLength': 255,
+            },
+        },
+        'additionalProperties': False,
+    },
+})
+
+update_response_v2100 = copy.deepcopy(update_response_v298)
+update_response_v2100['properties']['server']['properties'].update({
+    'scheduler_hints': _hints,
+})
+update_response_v2100['properties']['server']['required'].append(
+    'scheduler_hints'
+)
+
 resize_response = {'type': 'null'}
 
 confirm_resize_response = {'type': 'null'}
@@ -1765,6 +2089,7 @@ rebuild_response_v296['properties']['server']['properties'].update({
 rebuild_response_v296['properties']['server']['required'].append(
     'pinned_availability_zone'
 )
+
 rebuild_response_v298 = copy.deepcopy(rebuild_response_v296)
 rebuild_response_v298['properties']['server']['properties']['image']['oneOf'][
     1

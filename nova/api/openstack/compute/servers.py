@@ -938,6 +938,18 @@ class ServersController(wsgi.Controller):
     @validation.schema(schema.update_v219, '2.19', '2.89')
     @validation.schema(schema.update_v290, '2.90', '2.93')
     @validation.schema(schema.update_v294, '2.94')
+    @validation.response_body_schema(schema.update_response, '2.0', '2.8')
+    @validation.response_body_schema(schema.update_response_v29, '2.9', '2.18')
+    @validation.response_body_schema(schema.update_response_v219, '2.19', '2.25')  # noqa: E501
+    @validation.response_body_schema(schema.update_response_v226, '2.26', '2.46')  # noqa: E501
+    @validation.response_body_schema(schema.update_response_v247, '2.47', '2.62')  # noqa: E501
+    @validation.response_body_schema(schema.update_response_v263, '2.63', '2.70')  # noqa: E501
+    @validation.response_body_schema(schema.update_response_v271, '2.71', '2.72')  # noqa: E501
+    @validation.response_body_schema(schema.update_response_v273, '2.73', '2.74')  # noqa: E501
+    @validation.response_body_schema(schema.update_response_v275, '2.75', '2.95')  # noqa: E501
+    @validation.response_body_schema(schema.update_response_v296, '2.96', '2.97')  # noqa: E501
+    @validation.response_body_schema(schema.update_response_v298, '2.98', '2.99')  # noqa: E501
+    @validation.response_body_schema(schema.update_response_v2100, '2.100')
     def update(self, req, id, body):
         """Update server then pass on to version-specific controller."""
 
@@ -966,41 +978,41 @@ class ServersController(wsgi.Controller):
         try:
             instance = self.compute_api.update_instance(
                 ctxt, instance, update_dict)
-
-            show_server_groups = api_version_request.is_supported(req, '2.71')
-            # NOTE(gmann): Starting from microversion 2.75, PUT and Rebuild
-            # API response will show all attributes like GET /servers API.
-            show_all_attributes = api_version_request.is_supported(req, '2.75')
-            extend_address = show_all_attributes
-            show_AZ = show_all_attributes
-            show_config_drive = show_all_attributes
-            show_keypair = show_all_attributes
-            show_srv_usg = show_all_attributes
-            show_sec_grp = show_all_attributes
-            show_extended_status = show_all_attributes
-            show_extended_volumes = show_all_attributes
-            # NOTE(gmann): Below attributes need to be added in response
-            # if respective policy allows.So setting these as None
-            # to perform the policy check in view builder.
-            show_extended_attr = None if show_all_attributes else False
-            show_host_status = None if show_all_attributes else False
-
-            return self._view_builder.show(
-                req, instance,
-                extend_address=extend_address,
-                show_AZ=show_AZ,
-                show_config_drive=show_config_drive,
-                show_extended_attr=show_extended_attr,
-                show_host_status=show_host_status,
-                show_keypair=show_keypair,
-                show_srv_usg=show_srv_usg,
-                show_sec_grp=show_sec_grp,
-                show_extended_status=show_extended_status,
-                show_extended_volumes=show_extended_volumes,
-                show_server_groups=show_server_groups)
         except exception.InstanceNotFound:
             msg = _("Instance could not be found")
             raise exc.HTTPNotFound(explanation=msg)
+
+        show_server_groups = api_version_request.is_supported(req, '2.71')
+        # NOTE(gmann): Starting from microversion 2.75, PUT and Rebuild
+        # API response will show all attributes like GET /servers API.
+        show_all_attributes = api_version_request.is_supported(req, '2.75')
+        extend_address = show_all_attributes
+        show_AZ = show_all_attributes
+        show_config_drive = show_all_attributes
+        show_keypair = show_all_attributes
+        show_srv_usg = show_all_attributes
+        show_sec_grp = show_all_attributes
+        show_extended_status = show_all_attributes
+        show_extended_volumes = show_all_attributes
+        # NOTE(gmann): Below attributes need to be added in response
+        # if respective policy allows.So setting these as None
+        # to perform the policy check in view builder.
+        show_extended_attr = None if show_all_attributes else False
+        show_host_status = None if show_all_attributes else False
+
+        return self._view_builder.show(
+            req, instance,
+            extend_address=extend_address,
+            show_AZ=show_AZ,
+            show_config_drive=show_config_drive,
+            show_extended_attr=show_extended_attr,
+            show_host_status=show_host_status,
+            show_keypair=show_keypair,
+            show_srv_usg=show_srv_usg,
+            show_sec_grp=show_sec_grp,
+            show_extended_status=show_extended_status,
+            show_extended_volumes=show_extended_volumes,
+            show_server_groups=show_server_groups)
 
     # NOTE(gmann): Returns 204 for backwards compatibility but should be 202
     # for representing async API as this API just accepts the request and
