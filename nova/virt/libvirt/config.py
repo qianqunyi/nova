@@ -827,8 +827,10 @@ class LibvirtConfigCPUFeature(LibvirtConfigObject):
 
         return ft
 
-    def __eq__(self, obj):
-        return obj.name == self.name
+    def __eq__(self, other):
+        if not isinstance(other, LibvirtConfigCPUFeature):
+            return False
+        return other.name == self.name
 
     def __ne__(self, obj):
         return obj.name != self.name
@@ -2907,6 +2909,11 @@ class LibvirtConfigGuestFeature(LibvirtConfigObject):
         super(LibvirtConfigGuestFeature, self).__init__(root_name=name,
                                                         **kwargs)
 
+    def __eq__(self, other):
+        if not isinstance(other, LibvirtConfigGuestFeature):
+            return False
+        return other.root_name == self.root_name
+
 
 class LibvirtConfigGuestFeatureACPI(LibvirtConfigGuestFeature):
 
@@ -2940,6 +2947,11 @@ class LibvirtConfigGuestFeatureSMM(LibvirtConfigGuestFeature):
 
     def __init__(self, **kwargs):
         super(LibvirtConfigGuestFeatureSMM, self).__init__("smm", **kwargs)
+        # NOTE(tkajinam): The smm feature also supports tseg sub-element, which
+        # has not set by nova or libvirt. Using the tseg option requires
+        # huge caution according to libvirt doc[1], so the option is
+        # intentionally left unimplemented now.
+        # [1] https://libvirt.org/formatdomain.html#hypervisor-features
 
     def format_dom(self):
         root = super(LibvirtConfigGuestFeatureSMM, self).format_dom()
@@ -3385,6 +3397,7 @@ class LibvirtConfigGuest(LibvirtConfigObject):
     def parse_dom(self, xmldoc):
         self.virt_type = xmldoc.get('type')
         # Note: This cover only for: LibvirtConfigGuestDisks
+        #                            LibvirtConfigGuestFeatureSMM
         #                            LibvirtConfigGuestFilesys
         #                            LibvirtConfigGuestHostdevPCI
         #                            LibvirtConfigGuestHostdevMDEV
@@ -3448,6 +3461,10 @@ class LibvirtConfigGuest(LibvirtConfigObject):
                 self._parse_os(c)
             elif c.tag == 'iothreads':
                 self.iothreads = int(c.text)
+            elif c.tag == 'features':
+                for f in c:
+                    if f.tag == 'smm' and f.get('state', 'on') == 'on':
+                        self.features.append(LibvirtConfigGuestFeatureSMM())
             else:
                 self._parse_basic_props(c)
 
