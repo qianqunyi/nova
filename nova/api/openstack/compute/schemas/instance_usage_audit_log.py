@@ -32,10 +32,14 @@ _instance_usage_audit_log_response = {
         'log': {
             'type': 'object',
             'additionalProperties': {
-                'instances': {'type': 'integer', 'minimum': 0},
-                'errors': {'type': 'integer', 'minimum': 0},
-                'message': {'type': 'string'},
-                'state': {'type': 'string', 'enum': ['RUNNING', 'DONE']},
+                'type': 'object',
+                'properties': {
+                    'instances': {'type': 'integer', 'minimum': 0},
+                    'errors': {'type': 'integer', 'minimum': 0},
+                    'message': {'type': 'string'},
+                    'state': {'type': 'string', 'enum': ['RUNNING', 'DONE']},
+                },
+                'additionalProperties': False,
             },
         },
         'num_hosts': {'type': 'integer', 'minimum': 0},
