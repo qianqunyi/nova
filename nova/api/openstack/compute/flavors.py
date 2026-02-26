@@ -106,8 +106,8 @@ class FlavorsController(wsgi.Controller):
             # flavor.extra_specs is populated with the empty string.
             flavor.extra_specs = {}
 
-        return self._view_builder.show(req, flavor, include_description,
-                                       include_extra_specs=include_extra_specs)
+        return self._view_builder.show(
+            req, flavor, include_extra_specs=include_extra_specs)
 
     @wsgi.api_version('2.55')
     @wsgi.expected_errors((400, 404))
@@ -132,8 +132,8 @@ class FlavorsController(wsgi.Controller):
         if api_version_request.is_supported(req, '2.61'):
             include_extra_specs = context.can(
                 fes_policies.POLICY_ROOT % 'index', fatal=False)
-        return self._view_builder.show(req, flavor, include_description=True,
-                                       include_extra_specs=include_extra_specs)
+        return self._view_builder.show(
+            req, flavor, include_extra_specs=include_extra_specs)
 
     @wsgi.expected_errors(400)
     @validation.query_schema(schema.index_query, '2.0', '2.74')
@@ -183,11 +183,8 @@ class FlavorsController(wsgi.Controller):
             include_extra_specs = context.can(
                 fes_policies.POLICY_ROOT % 'index', fatal=False)
 
-        include_description = api_version_request.is_supported(req, '2.55')
-
         return self._view_builder.show(
-            req, flavor, include_description=include_description,
-            include_extra_specs=include_extra_specs)
+            req, flavor, include_extra_specs=include_extra_specs)
 
     def _parse_is_public(self, is_public):
         """Parse is_public into something usable."""
