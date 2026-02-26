@@ -941,7 +941,6 @@ _server_response = {
             },
             'additionalProperties': False,
         },
-        'adminPass': {'type': ['null', 'string']},
         'config_drive': {
             'type': ['string', 'null'], 'enum': ['', 'True', 'False', None],
         },
@@ -1480,7 +1479,6 @@ update_response = {
                     },
                     'additionalProperties': False,
                 },
-                'adminPass': {'type': ['null', 'string']},
                 'created': {'type': 'string', 'format': 'date-time'},
                 'fault': {
                     'type': 'object',
@@ -1884,6 +1882,8 @@ rebuild_response = {
                 'OS-DCF:diskConfig': {'type': 'string'},
             },
             'required': [
+                # adminPass is an unfortunate example of config-driven
+                # API behavior and isn't present unless enabled
                 'accessIPv4',
                 'accessIPv6',
                 'addresses',
