@@ -50,7 +50,57 @@
       script: "cleanup_test_servers.sh server-lm1"
       ignore_errors: true
 
+- name: Graceful shutdown source compute cold migration
+  block:
+    - name: Start cold migrations of test servers
+      become: true
+      become_user: stack
+      script: "start_cold_migration.sh server-cm1"
+      environment:
+        SUBNODE_HOSTNAME: "{{ hostvars['compute1']['ansible_hostname'] }}"
+        CONTROLLER_HOSTNAME: "{{ hostvars['controller']['ansible_hostname'] }}"
+      register: start_cold_migrations_result
+      failed_when: start_cold_migrations_result.rc not in [0, 2]
+
+    - name: Set fact if migration is completed or timed out before SIGTERM to source compute
+      set_fact:
+        cold_migrations_completed_or_timeout: "{{ start_cold_migrations_result.rc == 2 }}"
+
+    - name: Run graceful shutdown tests
+      when: not cold_migrations_completed_or_timeout
+      block:
+        - name: Send SIGTERM to source compute to start the source compute graceful shutdown
+          delegate_to: compute1
+          become: true
+          shell: "kill -15 $(systemctl show devstack@n-cpu -p MainPID --value)"
+
+        - name: Verify cold migration is completed during graceful shutdown
+          become: true
+          become_user: stack
+          script: "verify_cold_migration.sh server-cm1"
+
+        # Sleep for 180 sec: default graceful_shutdown_timeout
+        - name: Sleep for 180 seconds to allow source compute graceful shutdown to complete
+          pause:
+            seconds: 180
+
+        - name: Verify compute service is stopped after graceful shutdown
+          become: true
+          become_user: stack
+          script: "start_and_verify_compute_service.sh {{ hostvars['compute1']['ansible_hostname'] }} inactive"
+
+    - name: Start and verify subnode compute service is running
+      become: true
+      become_user: stack
+      script: "start_and_verify_compute_service.sh {{ hostvars['compute1']['ansible_hostname'] }}"
+
+    - name: Cleanup test servers
+      become: true
+      become_user: stack
+      script: "cleanup_test_servers.sh server-cm1"
+      ignore_errors: true
+
 - name: Fail if any test is skipped
   fail:
     msg: "One or more test is skipped due to operation is either completed or timed out before SIGTERM signal."
-  when: live_migrations_completed_or_timeout
+  when: live_migrations_completed_or_timeout or cold_migrations_completed_or_timeout

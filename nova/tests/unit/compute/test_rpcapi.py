@@ -229,7 +229,8 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
         self._test_compute_api('check_instance_shared_storage', 'call',
                 expected_args,
                 instance=self.fake_instance_obj, data='foo',
-                version='6.0')
+                version='6.0',
+                topic_alt=compute_rpcapi.RPC_TOPIC_ALT)
 
     def test_check_instance_shared_storage_old_compute(self):
         ctxt = context.RequestContext('fake_user', 'fake_project')
@@ -246,7 +247,8 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
         mock_client.can_send_version.assert_has_calls([mock.call('6.0'),
                                                        mock.call('6.0')])
         mock_client.prepare.assert_called_with(
-            server=self.fake_instance_obj.host, version='5.0')
+            server=self.fake_instance_obj.host, version='5.0',
+            topic=compute_rpcapi.RPC_TOPIC)
         mock_cctx.call.assert_called_with(
             ctxt, 'check_instance_shared_storage',
             instance=self.fake_instance_obj, data='foo')
@@ -275,7 +277,8 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
         self._test_compute_api('finish_resize', 'cast',
                 instance=self.fake_instance_obj, migration={'id': 'foo'},
                 image='image', disk_info='disk_info', host='host',
-                request_spec=self.fake_request_spec_obj, version='6.0')
+                request_spec=self.fake_request_spec_obj, version='6.0',
+                topic_alt=compute_rpcapi.RPC_TOPIC_ALT)
 
     def test_finish_resize_old_compute(self):
         ctxt = context.RequestContext('fake_user', 'fake_project')
@@ -297,7 +300,7 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
         mock_client.can_send_version.assert_has_calls([mock.call('6.0'),
                                                        mock.call('5.2')])
         mock_client.prepare.assert_called_with(
-            server='host', version='5.0')
+            server='host', version='5.0', topic=compute_rpcapi.RPC_TOPIC)
         mock_cctx.cast.assert_called_with(
             ctxt, 'finish_resize', instance=self.fake_instance_obj,
             migration=mock.sentinel.migration, image='image',
@@ -307,7 +310,8 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
         self._test_compute_api('finish_revert_resize', 'cast',
                 instance=self.fake_instance_obj, migration={'id': 'fake_id'},
                 host='host', request_spec=self.fake_request_spec_obj,
-                version='6.0')
+                version='6.0',
+                topic_alt=compute_rpcapi.RPC_TOPIC_ALT)
 
     def test_finish_revert_resize_old_compute(self):
         ctxt = context.RequestContext('fake_user', 'fake_project')
@@ -328,7 +332,7 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
         mock_client.can_send_version.assert_has_calls([mock.call('6.0'),
                                                        mock.call('5.2')])
         mock_client.prepare.assert_called_with(
-            server='host', version='5.0')
+            server='host', version='5.0', topic=compute_rpcapi.RPC_TOPIC)
         mock_cctx.cast.assert_called_with(
             ctxt, 'finish_revert_resize', instance=self.fake_instance_obj,
             migration=mock.sentinel.migration)
@@ -660,7 +664,8 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
             migration=migration_obj.Migration(),
             snapshot_id=uuids.snapshot_id,
             # client.prepare kwargs
-            version='6.0', call_monitor_timeout=60, timeout=1234)
+            version='6.0', call_monitor_timeout=60, timeout=1234,
+            topic_alt=compute_rpcapi.RPC_TOPIC_ALT)
 
     @mock.patch('nova.rpc.ClientRouter.client')
     def test_prep_snapshot_based_resize_at_source_old_compute(
@@ -694,7 +699,8 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
             request_spec=objects.RequestSpec(),
             # client.prepare kwargs
             version='6.0', prepare_server='dest',
-            call_monitor_timeout=60, timeout=1234)
+            call_monitor_timeout=60, timeout=1234,
+            topic_alt=compute_rpcapi.RPC_TOPIC_ALT)
 
     @mock.patch('nova.rpc.ClientRouter.client')
     def test_finish_snapshot_based_resize_at_dest_old_compute(self, client):
@@ -722,7 +728,7 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
         rpcapi.router.client = mock.Mock()
         mock_client = mock.MagicMock()
         rpcapi.router.client.return_value = mock_client
-        mock_client.can_send_version.side_effect = [False, False, True]
+        mock_client.can_send_version.side_effect = [False, False, True, False]
         mock_cctx = mock.MagicMock()
         mock_client.prepare.return_value = mock_cctx
         expected_args = {'instance': self.fake_instance_obj,
@@ -736,10 +742,12 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
 
         mock_client.can_send_version.assert_has_calls([mock.call('6.0'),
                                                        mock.call('6.0'),
-                                                       mock.call('5.7')])
+                                                       mock.call('5.7'),
+                                                       mock.call('6.5')])
         mock_client.prepare.assert_called_with(
             server='dest', version='5.7',
-            call_monitor_timeout=60, timeout=1234)
+            call_monitor_timeout=60, timeout=1234,
+            topic=compute_rpcapi.RPC_TOPIC)
         mock_cctx.call.assert_called_with(
             self.context, 'finish_snapshot_based_resize_at_dest',
             **expected_args)
@@ -809,7 +817,8 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
             migration=migration_obj.Migration(source_compute='source'),
             # client.prepare kwargs
             version='6.0', prepare_server='source',
-            call_monitor_timeout=60, timeout=1234)
+            call_monitor_timeout=60, timeout=1234,
+            topic_alt='compute-alt')
 
     @mock.patch('nova.rpc.ClientRouter.client')
     def test_finish_revert_snapshot_based_resize_at_source_old_compute(
@@ -995,7 +1004,8 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
                 instance=self.fake_instance_obj, migration={'id': 'fake_id'},
                 image='image', flavor=self.fake_flavor_obj,
                 clean_shutdown=True, request_spec=self.fake_request_spec_obj,
-                version='6.0')
+                version='6.0',
+                topic_alt=compute_rpcapi.RPC_TOPIC_ALT)
 
     def test_resize_instance_old_compute(self):
         ctxt = context.RequestContext('fake_user', 'fake_project')
@@ -1017,7 +1027,8 @@ class ComputeRpcAPITestCase(test.NoDBTestCase):
         mock_client.can_send_version.assert_has_calls([mock.call('6.0'),
                                                        mock.call('5.2')])
         mock_client.prepare.assert_called_with(
-            server=self.fake_instance_obj.host, version='5.0')
+            server=self.fake_instance_obj.host, version='5.0',
+            topic=compute_rpcapi.RPC_TOPIC)
         mock_cctx.cast.assert_called_with(
             ctxt, 'resize_instance', instance=self.fake_instance_obj,
             migration=mock.sentinel.migration, image='image',

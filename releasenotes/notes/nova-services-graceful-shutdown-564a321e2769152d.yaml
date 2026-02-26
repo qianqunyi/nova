@@ -12,6 +12,9 @@ features:
     Currently below operations are using second RPC server:
 
     * Live migration
+    * Cold migration
+    * Resize
+    * Revert resize
     * Server external Event
     * Get Console output
 
