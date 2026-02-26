@@ -906,7 +906,7 @@ _server_response = {
         'addresses': {
             'type': 'object',
             'patternProperties': {
-                '^.+$': {
+                '^.*$': {
                     'type': 'array',
                     'items': {
                         'type': 'object',
