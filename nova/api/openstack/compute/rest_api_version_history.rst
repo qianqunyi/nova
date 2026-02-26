@@ -1300,3 +1300,15 @@ The ``GET /servers/{server_id}``, ``GET /servers/detail``
 ``PUT /servers/{server_id}`` and ``POST /server/{server_id}/action``
 (rebuild) responses now include the scheduler hints provided during
 server creation.
+
+.. _microversion 2.101:
+
+2.101 (Maximum in 2026.1 Gazpacho)
+----------------------------------
+
+Attaching a volume via ``POST /servers/{server_id}/os-volume_attachments``
+returns an HTTP 202 Accepted response instead of the previous HTTP 200
+containing a ``volumeAttachment`` object. The response is now fully aync and
+does not wait for reserving a device name. Like before, callers need to watch
+the volume's state and/or server actions to recognize when the
+volume-attachment process finished.
