@@ -57,6 +57,7 @@ index_response = {
                     'items': copy.deepcopy(_ip_address),
                 },
             },
+            'additionalProperties': False,
         },
     },
     'required': ['addresses'],
@@ -73,4 +74,5 @@ show_response = {
             'items': copy.deepcopy(_ip_address),
         },
     },
+    'additionalProperties': False,
 }

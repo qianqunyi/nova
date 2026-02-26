@@ -22,7 +22,12 @@ create = {
             'type': 'object',
             'properties': {
                 'volume_type': {'type': 'string'},
-                'metadata': {'type': 'object'},
+                # This could probably be stricter but it's a deprecated API...
+                'metadata': {
+                    'type': 'object',
+                    'properties': {},
+                    'additionalProperties': True,
+                },
                 'snapshot_id': {'type': 'string'},
                 'size': {
                     'type': ['integer', 'string'],
