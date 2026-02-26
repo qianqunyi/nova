@@ -89,6 +89,7 @@ INVALID_FLAVOR_IMAGE_EXCEPTIONS = (
 )
 
 
+@validation.validated
 class ServersController(wsgi.Controller):
     """The Server API base controller class for the OpenStack API."""
 
@@ -1143,6 +1144,7 @@ class ServersController(wsgi.Controller):
 
     @wsgi.response(204)
     @wsgi.expected_errors((404, 409))
+    @validation.response_body_schema(schema.delete_response)
     def delete(self, req, id):
         """Destroys a server."""
         try:
