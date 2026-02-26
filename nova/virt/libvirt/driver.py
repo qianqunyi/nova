@@ -2043,7 +2043,7 @@ class LibvirtDriver(driver.ComputeDriver):
         # the instance directory and disk.info on init, this condition will
         # need to be re-visited to make sure that backend doesn't re-create
         # the disk. Refer to bugs: 1666831 1728603 1769131
-        if self.image_backend.backend(CONF.libvirt.images_type).SUPPORTS_CLONE:
+        if self.image_backend.backend().SUPPORTS_CLONE:
             root_disk = self.image_backend.by_name(instance, 'disk')
             if root_disk.exists():
                 root_disk.remove_snap(libvirt_utils.RESIZE_SNAPSHOT_NAME)
