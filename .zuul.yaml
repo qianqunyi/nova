@@ -434,6 +434,11 @@
       devstack_local_conf:
         post-config:
           $NOVA_CPU_CONF:
+            DEFAULT:
+              # Added in Gazpacho. Ensures that thread statistics is logged
+              # each time a task is submitted to the executor so that we
+              # can troubleshoot hanging threads easier.
+              thread_pool_statistic_period: 0
             libvirt:
               # Increase the number of PCIe ports per instance given the q35
               # machine type attaches more devices by default than pc
@@ -519,6 +524,7 @@
         'SYSTEMD_ENV_VARS["n-api-meta"]': OS_NOVA_DISABLE_EVENTLET_PATCHING=true
         'SYSTEMD_ENV_VARS["n-cond-cell1"]': OS_NOVA_DISABLE_EVENTLET_PATCHING=true
         'SYSTEMD_ENV_VARS["n-super-cond"]': OS_NOVA_DISABLE_EVENTLET_PATCHING=true
+        'SYSTEMD_ENV_VARS["n-cpu"]': OS_NOVA_DISABLE_EVENTLET_PATCHING=true
       devstack_services:
         # Disable OVN services
         br-ex-tcpdump: false
@@ -555,6 +561,7 @@
           FORCE_CONFIG_DRIVE: True
           # Added in Yoga.
           NOVNC_FROM_PACKAGE: False
+          'SYSTEMD_ENV_VARS["n-cpu"]': OS_NOVA_DISABLE_EVENTLET_PATCHING=true
         devstack_services:
           # Disable OVN services
           br-ex-tcpdump: false
