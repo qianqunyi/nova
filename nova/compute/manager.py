@@ -672,10 +672,49 @@ class ComputeManager(manager.Manager):
         self._syncs_in_progress_lock = threading.Lock()
         self.send_instance_updates = (
             CONF.filter_scheduler.track_instance_changes)
-        self._build_semaphore = threading.Semaphore(
-                self._get_max_concurrent_builds())
-        self._snapshot_semaphore = threading.Semaphore(
-                self._get_max_concurrent_snapshots())
+
+        max_builds = self._get_max_concurrent_builds()
+        max_snapshots = self._get_max_concurrent_snapshots()
+
+        if utils.concurrency_mode_threading():
+            max_tasks = max(max_builds, max_snapshots)
+
+            if max_builds != max_snapshots:
+                LOG.warning(
+                    "In native threading mode the number of concurrent "
+                    "builds, and snapshots should be limited to the "
+                    "same number. The current configuration has differing "
+                    "limits: max_concurrent_builds: %d, "
+                    "max_concurrent_snapshots: %d. "
+                    "Nova will use a single, overall limit of %d for these "
+                    "tasks.",
+                    max_builds, max_snapshots, max_tasks)
+
+            self._long_task_executor = utils.get_long_task_executor(max_tasks)
+
+            # In threading mode we want to use the size of the executor to
+            # act as the limit of concurrent execution. So neuter the
+            # semaphores here.
+            # TODO(gibi): remove the semaphores once eventlet mode is removed
+            self._build_semaphore = compute_utils.UnlimitedSemaphore()
+            self._snapshot_semaphore = compute_utils.UnlimitedSemaphore()
+
+        else:
+            # In eventlet mode we use the individual semaphores to limit
+            # the concurrent tasks, so just create a big Executor to
+            # potentially host all of them
+            self._long_task_executor = utils.get_long_task_executor(
+                max_builds + max_snapshots)
+
+            self._build_semaphore = threading.Semaphore(max_builds)
+            self._snapshot_semaphore = threading.Semaphore(max_snapshots)
+
+        # While live migration is a long-running task we cannot put it into
+        # the same long_task_executor as build and snapshot as we need:
+        # 1. a very small limit of concurrent live migrations compared to
+        #    builds and snapshots
+        # 2. a way to cancel live migrations easily that are waiting due to the
+        #    limit
         self._live_migration_executor = nova.utils.create_executor(
             max_workers=self._get_max_concurrent_live_migrations())
 
@@ -1879,6 +1918,10 @@ class ComputeManager(manager.Manager):
         self.instance_events.cancel_all_events()
         self.driver.cleanup_host(host=self.host)
         self._cleanup_live_migrations_in_pool()
+        # NOTE: graceful shutdown needs to take care of the executors
+        # self._sync_power_executor.shutdown()
+        # utils.destroy_long_task_executor()
+        # utils.destroy_default_executor()
 
     def _cleanup_live_migrations_in_pool(self):
         # Shutdown the pool so we don't get new requests.
@@ -2514,7 +2557,8 @@ class ComputeManager(manager.Manager):
         # NOTE(danms): We spawn here to return the RPC worker thread back to
         # the pool. Since what follows could take a really long time, we don't
         # want to tie up RPC workers.
-        utils.spawn(_locked_do_build_and_run_instance,
+        utils.spawn_on(self._long_task_executor,
+                    _locked_do_build_and_run_instance,
                     context, instance, image, request_spec,
                     filter_properties, admin_password, injected_files,
                     requested_networks, security_groups,
@@ -4682,10 +4726,24 @@ class ComputeManager(manager.Manager):
                       instance=instance)
             return
 
-        with self._snapshot_semaphore:
-            self._snapshot_instance(context, image_id, instance,
-                                    task_states.IMAGE_SNAPSHOT)
+        def do_snapshot_instance(
+            context, image_id, instance, expected_task_state
+        ):
+            with self._snapshot_semaphore:
+                self._snapshot_instance(context, image_id, instance,
+                                        expected_task_state)
 
+        # NOTE(gibi): We spawn a separate task as this can be a long-running
+        # operation, and we want to return the RPC worker to its executor to
+        # avoid blocking RPC traffic.
+        return utils.spawn_on(
+            self._long_task_executor, do_snapshot_instance, context,
+            image_id, instance, task_states.IMAGE_SNAPSHOT)
+
+    @wrap_exception()
+    @reverts_task_state
+    @wrap_instance_fault
+    @delete_image_on_error
     def _snapshot_instance(self, context, image_id, instance,
                            expected_task_state):
         context = context.elevated()

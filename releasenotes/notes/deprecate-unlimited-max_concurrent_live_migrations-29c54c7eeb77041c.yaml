@@ -36,6 +36,14 @@ upgrade:
     now reduced to 5 native threads. Please also read the `concurrency
     <https://docs.openstack.org/nova/latest/admin/concurrency.html>`__
     guide for more details.
+  - |
+    In native threading mode the limit expressed by
+    ``[DEFAULT]max_concurrent_builds`` and
+    ``[DEFAULT]max_concurrent_snapshots`` configuration options are shared
+    across the two operation types as they are executed by the same Executor.
+    Therefore the two config options need to be set to the same value. If not
+    then nova will use the bigger value as the shared limit. The shared limit
+    also means that one operation type can consume the whole limit.
 deprecations:
   - |
     The possible 0 value of the configuration option
