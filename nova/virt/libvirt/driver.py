@@ -10954,9 +10954,7 @@ class LibvirtDriver(driver.ComputeDriver):
                 raise exception.VTPMSecretNotFound(msg)
 
             dest_check_data.vtpm_secret_uuid = secret.UUIDString()
-            # Have to decode the bytes type to conform to the object's
-            # SensitiveStringField type.
-            dest_check_data.vtpm_secret_value = secret.value().decode()
+            dest_check_data.vtpm_secret_value_bytes = secret.value()
         else:
             # If the instance has a vTPM, set the relevant fields to None in
             # order to convey that we are actively choosing not to pass any
@@ -12065,9 +12063,7 @@ class LibvirtDriver(driver.ComputeDriver):
         if migrate_data.has_vtpm_secret_data:
             self._host.create_secret(
                 'vtpm', instance.uuid,
-                # Convert the SensitiveStringField back to bytes when creating
-                # the libvirt secret.
-                password=migrate_data.vtpm_secret_value.encode(),
+                password=migrate_data.vtpm_secret_value_bytes,
                 uuid=migrate_data.vtpm_secret_uuid, ephemeral=False,
                 private=False)
 
