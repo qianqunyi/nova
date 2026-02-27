@@ -33,6 +33,7 @@ Request
   - minDisk: minDisk
   - minRam: minRam
   - is_public: flavor_is_public_query
+  - name: flavor_name_query
 
 Response
 --------

@@ -1,0 +1,7 @@
+---
+features:
+  - |
+    The v2.102 microversion has been introduced. This allows users to search
+    flavors by name, e.g.::
+
+        GET /flavors?name=gpu

@@ -281,6 +281,7 @@ REST_API_VERSION_HISTORY = """REST API Version History:
     * 2.101 - Attaching a volume via
               ``POST /servers/{server_id}/os-volume_attachments`` returns HTTP
               202 Accepted instead of HTTP 200 and a volumeAttachment response.
+    * 2.102 - Add support for filtering flavors by name.
 """
 
 # The minimum and maximum versions of the API supported
@@ -289,7 +290,7 @@ REST_API_VERSION_HISTORY = """REST API Version History:
 # Note(cyeoh): This only applies for the v2.1 API once microversions
 # support is fully merged. It does not affect the V2 API.
 _MIN_API_VERSION = '2.1'
-_MAX_API_VERSION = '2.101'
+_MAX_API_VERSION = '2.102'
 DEFAULT_API_VERSION = _MIN_API_VERSION
 
 # Almost all proxy APIs which are related to network, images and baremetal
