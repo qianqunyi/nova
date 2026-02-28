@@ -839,8 +839,7 @@ class FlavorsTestV275(FlavorsTestV261):
     @mock.patch('nova.objects.Flavor.get_by_flavor_id')
     def test_show_flavor_default_swap_value_old_version(self, mock_get):
         mock_get.return_value = self.FLAVOR_WITH_NO_SWAP
-        req = fakes.HTTPRequestV21.blank(
-            '/flavors/detail?limit=1', version='2.74')
+        req = fakes.HTTPRequestV21.blank('/flavors/1', version='2.74')
         response = self.controller.show(req, 1)
         response_list = response["flavor"]
         self.assertEqual(response_list['swap'], "")
@@ -859,7 +858,7 @@ class FlavorsTestV275(FlavorsTestV261):
     def test_show_flavor_default_swap_value(self, mock_get):
         mock_get.return_value = self.FLAVOR_WITH_NO_SWAP
         req = fakes.HTTPRequestV21.blank(
-            '/flavors/detail?limit=1', version=self.microversion)
+            '/flavors/1', version=self.microversion)
         response = self.controller.show(req, 1)
         response_list = response["flavor"]
         self.assertEqual(response_list['swap'], 0)
@@ -942,6 +941,33 @@ class FlavorsTestV2102(FlavorsTestV275):
     def test_list_detail_flavors_with_additional_filter_old_version(self):
         self.omit_legacy_fields = False
         super().test_list_detail_flavors_with_additional_filter_old_version()
+
+    def test_list_flavor_invalid_query_params(self):
+        req = fakes.HTTPRequest.blank(
+            '/flavors?unknown=1',
+            use_admin_context=True,
+            version='2.102')
+        self.assertRaises(
+            exception.ValidationError, self.controller.index, req
+        )
+
+    def test_detail_flavor_invalid_query_params(self):
+        req = fakes.HTTPRequest.blank(
+            '/flavors/detail?unknown=1',
+            use_admin_context=True,
+            version='2.102')
+        self.assertRaises(
+            exception.ValidationError, self.controller.detail, req
+        )
+
+    def test_show_flavor_invalid_query_params(self):
+        req = fakes.HTTPRequest.blank(
+            '/flavors/123?unknown=1',
+            use_admin_context=True,
+            version='2.102')
+        self.assertRaises(
+            exception.ValidationError, self.controller.show, req, '123'
+        )
 
 
 class DisabledFlavorsWithRealDBTestV21(test.TestCase):

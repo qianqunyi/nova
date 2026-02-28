@@ -144,12 +144,14 @@ index_query_v2102['properties']['name'] = parameter_types.multi_params(
 index_query_v2102['properties']['sort_key']['items']['enum'].remove(
     'rxtx_factor')
 
-# TODO(stephenfin): Remove additionalProperties in a future API version
 show_query = {
     'type': 'object',
     'properties': {},
     'additionalProperties': True,
 }
+
+show_query_v2102 = copy.deepcopy(show_query)
+show_query_v2102['additionalProperties'] = False
 
 _flavor_basic = {
     'type': 'object',

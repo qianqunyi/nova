@@ -10,17 +10,25 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import copy
+
 index_query = {
     'type': 'object',
     'properties': {},
     'additionalProperties': True,
 }
 
+index_query_v2102 = copy.deepcopy(index_query)
+index_query_v2102['additionalProperties'] = False
+
 show_query = {
     'type': 'object',
     'properties': {},
     'additionalProperties': True,
 }
+
+show_query_v2102 = copy.deepcopy(show_query)
+show_query_v2102['additionalProperties'] = False
 
 _instance_usage_audit_log_response = {
     'type': 'object',
