@@ -918,6 +918,24 @@ class ServersController(wsgi.Controller):
 
         return self._add_location(robj)
 
+    @wsgi.response(204)
+    @wsgi.expected_errors((404, 409))
+    @validation.response_body_schema(schema.delete_response)
+    def delete(self, req, id):
+        """Destroys a server."""
+        try:
+            self._delete(req.environ['nova.context'], req, id)
+        except exception.InstanceNotFound:
+            msg = _("Instance could not be found")
+            raise exc.HTTPNotFound(explanation=msg)
+        except (
+            exception.InstanceIsLocked, exception.AllocationDeleteFailed
+        ) as e:
+            raise exc.HTTPConflict(explanation=e.format_message())
+        except exception.InstanceInvalidState as state_error:
+            common.raise_http_conflict_for_instance_invalid_state(
+                state_error, 'delete', id)
+
     def _delete(self, context, req, instance_uuid):
         instance = self._get_server(context, req, instance_uuid)
         context.can(server_policies.SERVERS % 'delete',
@@ -1024,7 +1042,7 @@ class ServersController(wsgi.Controller):
     @wsgi.action('confirmResize')
     @validation.schema(schema.confirm_resize)
     @validation.response_body_schema(schema.confirm_resize_response)
-    def _action_confirm_resize(self, req, id, body):
+    def _confirm_resize(self, req, id, body):
         context = req.environ['nova.context']
         instance = self._get_server(context, req, id)
         context.can(server_policies.SERVERS % 'confirm_resize',
@@ -1048,7 +1066,7 @@ class ServersController(wsgi.Controller):
     @wsgi.action('revertResize')
     @validation.schema(schema.revert_resize)
     @validation.response_body_schema(schema.revert_resize_response)
-    def _action_revert_resize(self, req, id, body):
+    def _revert_resize(self, req, id, body):
         context = req.environ['nova.context']
         instance = self._get_server(context, req, id)
         context.can(server_policies.SERVERS % 'revert_resize',
@@ -1072,8 +1090,7 @@ class ServersController(wsgi.Controller):
     @wsgi.action('reboot')
     @validation.schema(schema.reboot)
     @validation.response_body_schema(schema.reboot_response)
-    def _action_reboot(self, req, id, body):
-
+    def _reboot(self, req, id, body):
         reboot_type = body['reboot']['type'].upper()
         context = req.environ['nova.context']
         instance = self._get_server(context, req, id)
@@ -1088,10 +1105,24 @@ class ServersController(wsgi.Controller):
             common.raise_http_conflict_for_instance_invalid_state(state_error,
                     'reboot', id)
 
-    def _resize(self, req, instance_id, flavor_id, auto_disk_config=None):
-        """Begin the resize process with given instance/flavor."""
+    @wsgi.response(202)
+    @wsgi.expected_errors((400, 401, 403, 404, 409))
+    @wsgi.action('resize')
+    @validation.schema(schema.resize)
+    @validation.response_body_schema(schema.resize_response)
+    def _resize(self, req, id, body):
+        """Resizes a given instance to the flavor size requested."""
+        resize_dict = body['resize']
+        flavor_id = str(resize_dict["flavorRef"])
+
+        auto_disk_config = None
+        auto_disk_config_raw = resize_dict.get(helpers.API_DISK_CONFIG)
+        if auto_disk_config_raw is not None:
+            auto_disk_config = helpers.disk_config_from_api(
+                auto_disk_config_raw)
+
         context = req.environ["nova.context"]
-        instance = self._get_server(context, req, instance_id,
+        instance = self._get_server(context, req, id,
                                     columns_to_join=['services', 'resources',
                                                      'pci_requests',
                                                      'pci_devices',
@@ -1115,8 +1146,8 @@ class ServersController(wsgi.Controller):
         ) as e:
             raise exc.HTTPConflict(explanation=e.format_message())
         except exception.InstanceInvalidState as state_error:
-            common.raise_http_conflict_for_instance_invalid_state(state_error,
-                    'resize', instance_id)
+            common.raise_http_conflict_for_instance_invalid_state(
+                state_error, 'resize', id)
         except exception.ImageNotAuthorized:
             msg = _("You are not authorized to access the image "
                     "the instance was started with.")
@@ -1143,23 +1174,6 @@ class ServersController(wsgi.Controller):
             exception.ForbiddenWithShare) as e:
             raise exc.HTTPConflict(explanation=e.format_message())
 
-    @wsgi.response(204)
-    @wsgi.expected_errors((404, 409))
-    @validation.response_body_schema(schema.delete_response)
-    def delete(self, req, id):
-        """Destroys a server."""
-        try:
-            self._delete(req.environ['nova.context'], req, id)
-        except exception.InstanceNotFound:
-            msg = _("Instance could not be found")
-            raise exc.HTTPNotFound(explanation=msg)
-        except (exception.InstanceIsLocked,
-                exception.AllocationDeleteFailed) as e:
-            raise exc.HTTPConflict(explanation=e.format_message())
-        except exception.InstanceInvalidState as state_error:
-            common.raise_http_conflict_for_instance_invalid_state(state_error,
-                    'delete', id)
-
     def _image_from_req_data(self, server_dict, create_kwargs):
         """Get image data from the request or raise appropriate
         exceptions.
@@ -1180,21 +1194,6 @@ class ServersController(wsgi.Controller):
     def _flavor_id_from_req_data(self, data):
         flavor_ref = data['server']['flavorRef']
         return common.get_id_from_href(flavor_ref)
-
-    @wsgi.response(202)
-    @wsgi.expected_errors((400, 401, 403, 404, 409))
-    @wsgi.action('resize')
-    @validation.schema(schema.resize)
-    @validation.response_body_schema(schema.resize_response)
-    def _action_resize(self, req, id, body):
-        """Resizes a given instance to the flavor size requested."""
-        resize_dict = body['resize']
-        flavor_ref = str(resize_dict["flavorRef"])
-
-        kwargs = {}
-        helpers.translate_attributes(helpers.RESIZE, resize_dict, kwargs)
-
-        self._resize(req, id, flavor_ref, **kwargs)
 
     @wsgi.response(202)
     @wsgi.expected_errors((400, 403, 404, 409))
@@ -1221,7 +1220,7 @@ class ServersController(wsgi.Controller):
     @validation.response_body_schema(schema.rebuild_response_v296, '2.96', '2.97')  # noqa: E501
     @validation.response_body_schema(schema.rebuild_response_v298, '2.98', '2.99')  # noqa: E501
     @validation.response_body_schema(schema.rebuild_response_v2100, '2.100')
-    def _action_rebuild(self, req, id, body):
+    def _rebuild(self, req, id, body):
         """Rebuild an instance with the given attributes."""
         rebuild_dict = body['rebuild']
 
@@ -1387,10 +1386,9 @@ class ServersController(wsgi.Controller):
     @wsgi.action('createImage')
     @validation.schema(schema.create_image, '2.0', '2.0')
     @validation.schema(schema.create_image, '2.1')
-    @validation.response_body_schema(
-        schema.create_image_response, '2.0', '2.44')
+    @validation.response_body_schema(schema.create_image_response, '2.0', '2.44')  # noqa: E501
     @validation.response_body_schema(schema.create_image_response_v245, '2.45')
-    def _action_create_image(self, req, id, body):
+    def _create_image(self, req, id, body):
         """Snapshot a server instance."""
         context = req.environ['nova.context']
         instance = self._get_server(context, req, id)
@@ -1499,7 +1497,7 @@ class ServersController(wsgi.Controller):
     @wsgi.action('os-start')
     @validation.schema(schema.start_server)
     @validation.response_body_schema(schema.start_server_response)
-    def _start_server(self, req, id, body):
+    def _start(self, req, id, body):
         """Start an instance."""
         context = req.environ['nova.context']
         instance = self._get_instance(context, id)
@@ -1519,7 +1517,7 @@ class ServersController(wsgi.Controller):
     @wsgi.action('os-stop')
     @validation.schema(schema.stop_server)
     @validation.response_body_schema(schema.stop_server_response)
-    def _stop_server(self, req, id, body):
+    def _stop(self, req, id, body):
         """Stop an instance."""
         context = req.environ['nova.context']
         instance = self._get_instance(context, id)
@@ -1541,7 +1539,7 @@ class ServersController(wsgi.Controller):
     @wsgi.action('trigger_crash_dump')
     @validation.schema(schema.trigger_crash_dump)
     @validation.response_body_schema(schema.trigger_crash_dump_response)
-    def _action_trigger_crash_dump(self, req, id, body):
+    def _trigger_crash_dump(self, req, id, body):
         """Trigger crash dump in an instance"""
         context = req.environ['nova.context']
         instance = self._get_instance(context, id)
