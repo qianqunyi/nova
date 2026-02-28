@@ -5,3 +5,7 @@ features:
     flavors by name, e.g.::
 
         GET /flavors?name=gpu
+
+    In addition, the ``rxtx_factor`` and ``OS-FLV-DISABLED:disabled`` fields
+    have been removed from all flavors responses, while the ``rxtx_factor``
+    field can no longer be provided when creating a server.

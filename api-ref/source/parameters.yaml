@@ -3059,6 +3059,7 @@ flavor_disabled:
     This is an artifact of the legacy v2 API and will always be set to
     ``false``. There is currently no way to disable a flavor and set this to
     ``true``.
+  max_version: 2.101
 flavor_disk:
   in: body
   required: true
@@ -3221,6 +3222,7 @@ flavor_rxtx_factor:
   in: body
   required: true
   type: float
+  max_version: 2.101
 flavor_rxtx_factor_in:
   description: |
     The receive / transmit factor (as a float) that will be set on
@@ -3229,6 +3231,7 @@ flavor_rxtx_factor_in:
   in: body
   required: false
   type: float
+  max_version: 2.101
 flavor_server:
   description: |
     Before microversion 2.47 this contains the ID and links for the flavor

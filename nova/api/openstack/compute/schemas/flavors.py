@@ -75,12 +75,10 @@ create = {
     'additionalProperties': False,
 }
 
-
 create_v20 = copy.deepcopy(create)
 create_v20['properties']['flavor']['properties']['name'] = (
     parameter_types.name_with_leading_trailing_spaces
 )
-
 
 # 2.55 adds an optional description field with a max length of 65535 since the
 # backing database column is a TEXT column which is 64KiB.
@@ -89,11 +87,12 @@ _flavor_description = {
     'pattern': parameter_types.valid_description_regex,
 }
 
-
 create_v255 = copy.deepcopy(create)
 create_v255['properties']['flavor']['properties']['description'] = (
     _flavor_description)
 
+create_v2102 = copy.deepcopy(create_v255)
+del create_v2102['properties']['flavor']['properties']['rxtx_factor']
 
 update = {
     'type': 'object',
@@ -142,6 +141,8 @@ index_query_v275['additionalProperties'] = False
 index_query_v2102 = copy.deepcopy(index_query_v275)
 index_query_v2102['properties']['name'] = parameter_types.multi_params(
     {'type': 'string'})
+index_query_v2102['properties']['sort_key']['items']['enum'].remove(
+    'rxtx_factor')
 
 # TODO(stephenfin): Remove additionalProperties in a future API version
 show_query = {
@@ -239,6 +240,12 @@ _flavor_v275 = copy.deepcopy(_flavor_v261)
 # we completely overwrite this since the new variant is much simpler
 _flavor_v275['properties']['swap'] = {'type': 'integer'}
 
+_flavor_v2102 = copy.deepcopy(_flavor_v275)
+del _flavor_v2102['properties']['rxtx_factor']
+del _flavor_v2102['properties']['OS-FLV-DISABLED:disabled']
+_flavor_v2102['required'].remove('rxtx_factor')
+_flavor_v2102['required'].remove('OS-FLV-DISABLED:disabled')
+
 _flavors_links = {
     'type': 'array',
     'items': {
@@ -274,6 +281,9 @@ create_response_v261['properties']['flavor'] = copy.deepcopy(_flavor_v261)
 create_response_v275 = copy.deepcopy(create_response_v261)
 create_response_v275['properties']['flavor'] = copy.deepcopy(_flavor_v275)
 
+create_response_v2102 = copy.deepcopy(create_response_v261)
+create_response_v2102['properties']['flavor'] = copy.deepcopy(_flavor_v2102)
+
 # NOTE(stephenfin): update is only available from 2.55 and the response is
 # identical to the create and show response from that point forward
 update_response = {
@@ -290,6 +300,9 @@ update_response_v261['properties']['flavor'] = copy.deepcopy(_flavor_v261)
 
 update_response_v275 = copy.deepcopy(update_response_v261)
 update_response_v275['properties']['flavor'] = copy.deepcopy(_flavor_v275)
+
+update_response_v2102 = copy.deepcopy(update_response_v261)
+update_response_v2102['properties']['flavor'] = copy.deepcopy(_flavor_v2102)
 
 index_response = {
     'type': 'object',
@@ -329,6 +342,9 @@ detail_response_v261['properties']['flavors']['items'] = _flavor_v261
 detail_response_v275 = copy.deepcopy(detail_response_v261)
 detail_response_v275['properties']['flavors']['items'] = _flavor_v275
 
+detail_response_v2102 = copy.deepcopy(detail_response_v261)
+detail_response_v2102['properties']['flavors']['items'] = _flavor_v2102
+
 show_response = {
     'type': 'object',
     'properties': {
@@ -346,3 +362,6 @@ show_response_v261['properties']['flavor'] = copy.deepcopy(_flavor_v261)
 
 show_response_v275 = copy.deepcopy(show_response_v261)
 show_response_v275['properties']['flavor'] = copy.deepcopy(_flavor_v275)
+
+show_response_v2102 = copy.deepcopy(show_response_v261)
+show_response_v2102['properties']['flavor'] = copy.deepcopy(_flavor_v2102)

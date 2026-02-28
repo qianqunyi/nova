@@ -68,6 +68,10 @@ class ViewBuilder(common.ViewBuilder):
         if api_version_request.is_supported(request, '2.75'):
             flavor_dict['flavor']['swap'] = flavor["swap"] or 0
 
+        if api_version_request.is_supported(request, '2.102'):
+            del flavor_dict['flavor']['OS-FLV-DISABLED:disabled']
+            del flavor_dict['flavor']['rxtx_factor']
+
         return flavor_dict
 
     def index(self, request, flavors):

@@ -47,6 +47,8 @@ class FlavorsTestV21(test.TestCase):
     expect_description = False
     # Flag to tell the test if a extra_specs should be expected in a response.
     expect_extra_specs = False
+    # Flag to tell the test if legacy fields should be omitted from responses.
+    omit_legacy_fields = False
 
     def setUp(self):
         super().setUp()
@@ -67,6 +69,9 @@ class FlavorsTestV21(test.TestCase):
             expected['description'] = flavor.description
         if self.expect_extra_specs:
             expected['extra_specs'] = flavor.extra_specs
+        if self.omit_legacy_fields:
+            expected.pop('rxtx_factor', None)
+            expected.pop('OS-FLV-DISABLED:disabled', None)
 
     @mock.patch('nova.objects.Flavor.get_by_flavor_id',
                 side_effect=return_flavor_not_found)
@@ -249,7 +254,7 @@ class FlavorsTestV21(test.TestCase):
         self.assertThat({'limit': ['1'], 'marker': ['1']},
                         matchers.DictMatches(params))
 
-    def test_get_flavor_with_limit(self):
+    def test_get_flavor_list_with_limit(self):
         req = self._build_request('/flavors?limit=2')
         response = self.controller.index(req)
         response_list = response["flavors"]
@@ -298,7 +303,7 @@ class FlavorsTestV21(test.TestCase):
         self.assertThat({'limit': ['2'], 'marker': ['2']},
                         matchers.DictMatches(params))
 
-    def test_get_flavor_with_default_limit(self):
+    def test_get_flavor_list_with_default_limit(self):
         self.stub_out('nova.api.openstack.common.get_limit_and_marker',
                       fake_get_limit_and_marker)
         self.flags(max_limit=1, group='api')
@@ -547,6 +552,9 @@ class FlavorsTestV21(test.TestCase):
         if 'detail' in url and self.expect_extra_specs:
             expected_resp[0]['extra_specs'] = (
                 fakes.FLAVORS['2'].extra_specs)
+        if self.omit_legacy_fields:
+            expected_resp[0].pop('rxtx_factor', None)
+            expected_resp[0].pop('OS-FLV-DISABLED:disabled', None)
         params = {
             'limit': 1,
             'marker': 1,
@@ -609,6 +617,9 @@ class FlavorsTestV21(test.TestCase):
         if 'detail' in url and self.expect_extra_specs:
             expected_resp[0]['extra_specs'] = (
                 fakes.FLAVORS['2'].extra_specs)
+        if self.omit_legacy_fields:
+            expected_resp[0].pop('rxtx_factor', None)
+            expected_resp[0].pop('OS-FLV-DISABLED:disabled', None)
         req = req or self._build_request(url + '&limit=1&marker=1')
         result = controller_list(req)
         self.assertEqual(expected_resp, result['flavors'])
@@ -856,6 +867,7 @@ class FlavorsTestV275(FlavorsTestV261):
 
 class FlavorsTestV2102(FlavorsTestV275):
     microversion = '2.102'
+    omit_legacy_fields = True
 
     def test_list_flavors_with_name_filter_old_version(self):
         req = fakes.HTTPRequestV21.blank(
@@ -901,7 +913,6 @@ class FlavorsTestV2102(FlavorsTestV275):
         expected = {
             'flavors': [
                 {
-                    'OS-FLV-DISABLED:disabled': fakes.FLAVORS['2'].disabled,
                     'OS-FLV-EXT-DATA:ephemeral':
                         fakes.FLAVORS['2'].ephemeral_gb,
                     'description': fakes.FLAVORS['2'].description,
@@ -921,13 +932,16 @@ class FlavorsTestV2102(FlavorsTestV275):
                     'name': fakes.FLAVORS['2'].name,
                     'os-flavor-access:is_public': True,
                     'ram': fakes.FLAVORS['2'].memory_mb,
-                    'rxtx_factor': '',
                     'swap': fakes.FLAVORS['2'].swap,
                     'vcpus': fakes.FLAVORS['2'].vcpus,
                 },
             ],
         }
         self.assertEqual(expected, actual)
+
+    def test_list_detail_flavors_with_additional_filter_old_version(self):
+        self.omit_legacy_fields = False
+        super().test_list_detail_flavors_with_additional_filter_old_version()
 
 
 class DisabledFlavorsWithRealDBTestV21(test.TestCase):
