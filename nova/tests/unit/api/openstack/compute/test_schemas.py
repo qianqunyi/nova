@@ -54,7 +54,7 @@ class SchemaTest(test.NoDBTestCase):
             elif method in ("GET",):
                 # request query string validation
                 if not hasattr(func, 'request_query_schemas'):
-                    missing_request_schemas.add(func.__qualname__)
+                    missing_query_schemas.add(func.__qualname__)
                 else:
                     for schema, _, _ in func.request_query_schemas._schemas:
                         _validate_schema(func, schema)
